@@ -343,7 +343,7 @@ k_prime과 n을 인자로 delete_entry함수를 호출합니다.
        x                  y                      z
      /                 /
    1     |      4     5     6   
-a     b  |   d     e     f     e
+a     b  |   d     e     f     g
 </pre>
 이와 같이 3,7 key와 x,y,z pointer를 가지는 부모노드와 internal A,B가 있고, A가 제한조건을 만족시키지 못했을 떄,    
 coalescence_nodes함수를 실행한다면   
@@ -352,7 +352,7 @@ coalescence_nodes함수를 실행한다면
                  x                                               y                                    z
                 /                                               /
    1     3      4     5     6              |         4     5     6                  | 
-a     b     d     e     f     e            |     d     f     e                      |
+a     b     d     e     f     e            |     d     e     f       g               |
 </pre>
 이와 같이 k_prime인 3을 A노드로 내리고, B노드의 key, pointer들을 A노드로 이동시킵니다.   
 또한 x포인터는 병합된 노드를 가리키고, y포인터는 기존의 B노드를 가리키고 있습니다.   
