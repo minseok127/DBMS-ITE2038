@@ -398,7 +398,29 @@ void buffer_read_page(int table_id, pagenum_t pagenum, page_t* dest){
 2-2. 만약 이미 해당 pagenum이 버퍼에 있다면 is_dirty가 true라면 디스크에 write하고 is_dirty를 false로 설정합니다.   
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;해당 버퍼의 페이지를 dest로 복사해주고 pin_count를 1만큼 증가시킵니다.   
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;LRU List를 수정하기 위해 해당 버퍼를 LRU List에서 제거하고 다시 삽입합니다.
+
+**버퍼로부터 read를 하였다면 pin_count가 증가하게 됩니다. 이 때, pin_count를 내린다는 것은 read를 마쳤다는 것을 의미합니다.**
+**이번 디자인에서 read를 마치는 행위는 write함수와 complete함수를 사용합니다.**
    
++ ### void buffer_write_page(int table_id, pagenum_t pagenum, page_t* src)
+<pre>
+<code>
+void buffer_write_page(int table_id, pagenum_t pagenum, page_t* src){
+	Buffer* bufptr = bufHash[table_id - 1].find_Hash(pagenum);
+
+	if(bufptr == NULL){
+		return;
+	}
+
+	memcpy(&(bufptr->frame), src, PAGE_SIZE);
+	bufptr->is_dirty = true;
+	bufptr->pin_count--;
+	
+	remove_from_LRUList(bufptr);
+	insert_into_LRUList(bufptr);
+}
+</code>
+</pre>
 
 ## File Manager API modification
 + Introduce
