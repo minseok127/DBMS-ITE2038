@@ -10,5 +10,5 @@ Features
 데이터를 효율적으로 다루기 위한 Index Manager에 대한 구현입니다.    
    
 b+tree의 작동방식에 대한 위키와 이를 디스크 상에서 어떻게 구현하는 지에 대한 위키로 구별하여 작성되었습니다.     
-+ [Basic Operations of B+Tree]
++ [Basic Operations of B+Tree](https://hconnect.hanyang.ac.kr/2020_ite2038_11800/2020_ite2038_2016025650/-/wikis/Disk-based-b-tree(Milestone1))
 + Disk based B+Tree
