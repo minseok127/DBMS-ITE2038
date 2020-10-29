@@ -16,4 +16,4 @@ b+tree의 작동방식에 대한 위키와 이를 디스크 상에서 어떻게 
 ### 2. Buffer Manager   
 디스크 I/O를 빈번하게 사용하는 행위는 프로그램의 퍼포먼스를 해치게 됩니다.   
 이를 해결하기 위하여 Index 계층과 Disk 계층 사이에 Buffer 계층을 형성하여 디스크 I/O의 횟수를 최소한으로 줄입니다.   
-+ [Buffer Manager]
++ [Buffer Manager](https://hconnect.hanyang.ac.kr/2020_ite2038_11800/2020_ite2038_2016025650/-/wikis/Buffer-Manager(project3))
