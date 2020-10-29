@@ -10,6 +10,14 @@ Buffer Manager
   
 Features
 ========
-1. Buffer Manager API
-2. File Manager API modification
-3. Index Manager Command modification
+[1. Buffer Manager API](#buffer-manager-api)
+   
+[2. File Manager API modification](#file-manager-api-modification)
+   
+[3. Index Manager Command modification](#index-manager-command-modification)
+   
+## Buffer Manager API
+
+## File Manager API modification
+
+## Index Manager Command modification
