@@ -388,18 +388,18 @@ void buffer_read_page(int table_id, pagenum_t pagenum, page_t* dest){
 </pre>
 인자로 들어온 table_id와 pagenum에 해당하는 버퍼가 보유한 페이지를 dest라는 페이지로 복사하는 함수입니다.   
 과정은 다음과 같습니다.   
+
++ talbe_id를 담당하는 해쉬 객체를 통하여 해당 pagenum이 존재하는 버퍼의 위치를 찾습니다.   
    
-1. talbe_id를 담당하는 해쉬 객체를 통하여 해당 pagenum이 존재하는 버퍼의 위치를 찾습니다.   
-   
-2-1. 만약 없다면 스택 객체에서 pop을 하여 비어있는 버퍼의 위치를 찾습니다.
++ 만약 없다면 스택 객체에서 pop을 하여 비어있는 버퍼의 위치를 찾습니다.   
 &nbsp;ㄱ. 만약 비어있는 버퍼가 있다면 디스크로부터 페이지를 해당 버퍼로 읽어오고, dest에 복사해줍니다.    
 &nbsp;&nbsp;&nbsp;&nbsp;또한 pin_count를 1로 설정한 후 해당 버퍼를 LRU LIST에 삽입하고, 해당 tabe_id의 해쉬객체에도 pagenum과 버퍼의 주소값을 넣어줍니다.    
 &nbsp;ㄴ. 만약 비어있는 버퍼가 없다면 LRU policy에 따라 eviction할 버퍼를 택하고 만약 is_dirty가 true라면 디스크에 write합니다.   
 &nbsp;&nbsp;&nbsp;&nbsp;또한 pin_count를 1로 설정한 후 해당 버퍼를 LRU LIST에 삽입하고, 해당 tabe_id의 해쉬객체에도 pagenum과 버퍼의 주소값을 넣어줍니다.    
    
-2-2. 만약 이미 해당 pagenum이 버퍼에 있다면 is_dirty가 true라면 디스크에 write하고 is_dirty를 false로 설정합니다.   
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;해당 버퍼의 페이지를 dest로 복사해주고 pin_count를 1만큼 증가시킵니다.   
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;LRU List를 수정하기 위해 해당 버퍼를 LRU List에서 제거하고 다시 삽입합니다.
++ 만약 이미 해당 pagenum이 버퍼에 있다면 is_dirty가 true일 때 디스크에 write하고 is_dirty를 false로 설정합니다.   
+&nbsp;&nbsp;&nbsp;&nbsp;해당 버퍼의 페이지를 dest로 복사해주고 pin_count를 1만큼 증가시킵니다.   
+&nbsp;&nbsp;&nbsp;&nbsp;LRU List를 수정하기 위해 해당 버퍼를 LRU List에서 제거하고 다시 삽입합니다.
 
 **버퍼로부터 read를 하였다면 pin count가 증가하게 됩니다. 이 때, pin count를 내린다는 것은 read를 마쳤다는 것을 의미합니다.**   
 **이번 디자인에서 read를 마치는 행위는 write함수와 complete함수를 사용합니다.**   
@@ -480,6 +480,59 @@ void flushBuf(int table_id){
 			targetptr->pagenum = 0;		
 		}
 	}
+}
+</code>
+</pre>
+인자로 들어온 table_id를 담당하는 해쉬객체의 listHead를 불러오고 해당 리스트 헤더의 next가 없어질때까지 제거를 반복합니다.   
+제거는 리스트 헤더의 next부터 시작합니다.      
+      
+타겟이 되는 DoubleListNode가 담고 있는 pagenum을 사용하여 해쉬 테이블을 탐색하고, 해당 페이지 번호를 갖는 버퍼에 접근 후 pin이 0이라면 flush를 진행합니다. 만약 is_dirty가 true라면 디스크에 반영을 해줍니다.    
+해쉬테이블에서 해당 페이지번호를 지우고 LRU List에서도 제거해줍니다. 버퍼 또한 초기화를 시켜줍니다.   
+   
+pin이 0이 아니라면 가리키던 DobuleListNode의 next로 이동하여 같은 과정을 수행하고 만약 next가 NULL이라면 다시 헤더의 next부터 실행합니다.   
+   
++ ### int shutdown_db()
+<pre>
+<code>
+int shutdown_db(){
+	for(int table_id = 1; table_id <= MAX_FILE_NUM && fileTable.getFd(table_id) != -2; table_id++){
+		flushBuf(table_id);
+		if (fileTable.getFd(table_id) == -1){
+			continue;
+		}
+		else if (close_file(table_id) < 0){
+			return -1;
+		}
+	}
+	
+	delete[] bufHash;
+	delete[] buf;
+	delete bufStack;
+	delete LRU_Head;
+	delete LRU_Tail;
+
+	return 0;
+}
+</code>
+</pre>
+모든 table_id를 flush시키고 버퍼를 제어하던 객체들의 동적할당을 해제해줍니다.
+> fileTable이라는 변수는 file.cpp에 선언된 함수로써 파일들의 정보를 다루는 변수입니다. 위의 코드에서는 해당 테이블 아이디에 파일이 할당되지 않은 경우를 제외하는 데 사용되었습니다.   
+   
++ ### Buffer* get_from_LRUList()
+<pre>
+<code>
+Buffer* get_from_LRUList(){
+	Buffer* Target = LRU_Tail->prev;
+	
+	while(Target->pin_count != 0){
+		Target = Target->prev;
+		if(Target == LRU_Head){
+			Target = LRU_Tail->prev;
+		}
+	}
+	remove_from_LRUList(Target);
+
+	return Target;
 }
 </code>
 </pre>
