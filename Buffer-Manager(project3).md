@@ -29,5 +29,8 @@ Buffer Manager는
 > ### API
    
 ## File Manager API modification
-
++ Introduce
++ Modification
 ## Index Manager Command modification
++ Introduce
++ Modification
