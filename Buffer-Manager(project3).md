@@ -17,10 +17,10 @@ Features
 [3. Index Manager Command modification](#index-manager-command-modification)
    
 ## Buffer Manager API
-+ Introduce
-+ Header File
-+ 버퍼 제어를 위한 객체들의 멤버 함수
-+ API
++ [Introduce](#introduce)
++ [Header File](#header-file)
++ [버퍼 제어를 위한 객체들의 멤버 함수](#버퍼-제어를-위한-객체들의-멤버-함수)
++ [API](#api)
 
 > ### Introduce
 Buffer Manager는 API의 작동을 위해 크게 4가지의 객체를 이용하게 됩니다.     
