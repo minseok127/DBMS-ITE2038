@@ -401,6 +401,8 @@ void buffer_read_page(int table_id, pagenum_t pagenum, page_t* dest){
 &nbsp;&nbsp;&nbsp;&nbsp;해당 버퍼의 페이지를 dest로 복사해주고 pin_count를 1만큼 증가시킵니다.   
 &nbsp;&nbsp;&nbsp;&nbsp;LRU List를 수정하기 위해 해당 버퍼를 LRU List에서 제거하고 다시 삽입합니다.
 
+이거 그냥 알고리즘 그림으로 바꿀까?
+
 **버퍼로부터 read를 하였다면 pin count가 증가하게 됩니다. 이 때, pin count를 내린다는 것은 read를 마쳤다는 것을 의미합니다.**   
 **이번 디자인에서 read를 마치는 행위는 write함수와 complete함수를 사용합니다.**   
    
@@ -483,6 +485,9 @@ void flushBuf(int table_id){
 }
 </code>
 </pre>
+
+이것도 그냥 알고리즘 그림으로 표현할까?
+
 인자로 들어온 table_id를 담당하는 해쉬객체의 listHead를 불러오고 해당 리스트 헤더의 next가 없어질때까지 제거를 반복합니다.   
 제거는 리스트 헤더의 next부터 시작합니다.      
       
