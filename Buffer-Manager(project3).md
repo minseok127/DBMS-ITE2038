@@ -384,6 +384,8 @@ void buffer_read_page(int table_id, pagenum_t pagenum, page_t* dest){
 
 	return;
 }
+</code>
+</pre>
 인자로 들어온 table_id와 pagenum에 해당하는 버퍼가 보유한 페이지를 dest라는 페이지로 복사하는 함수입니다.   
 과정은 다음과 같습니다.   
    
@@ -399,8 +401,8 @@ void buffer_read_page(int table_id, pagenum_t pagenum, page_t* dest){
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;해당 버퍼의 페이지를 dest로 복사해주고 pin_count를 1만큼 증가시킵니다.   
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;LRU List를 수정하기 위해 해당 버퍼를 LRU List에서 제거하고 다시 삽입합니다.
 
-**버퍼로부터 read를 하였다면 pin_count가 증가하게 됩니다. 이 때, pin_count를 내린다는 것은 read를 마쳤다는 것을 의미합니다.**
-**이번 디자인에서 read를 마치는 행위는 write함수와 complete함수를 사용합니다.**
+**버퍼로부터 read를 하였다면 pin count가 증가하게 됩니다. 이 때, pin count를 내린다는 것은 read를 마쳤다는 것을 의미합니다.**   
+**이번 디자인에서 read를 마치는 행위는 write함수와 complete함수를 사용합니다.**   
    
 + ### void buffer_write_page(int table_id, pagenum_t pagenum, page_t* src)
 <pre>
@@ -418,6 +420,66 @@ void buffer_write_page(int table_id, pagenum_t pagenum, page_t* src){
 	
 	remove_from_LRUList(bufptr);
 	insert_into_LRUList(bufptr);
+}
+</code>
+</pre>
+버퍼에서 불러온 페이지를 다 읽었을 때 호출하는 함수입니다. 페이지에 대한 변경이 일어났을 때 사용합니다.   
+is_dirty를 true로 설정하고 pin count를 내려줍니다. 또한 LRU List에서 해당 버퍼를 없애고 재삽입합니다.   
+   
++ ### void buffer_complete_read_without_write(int table_id, pagenum_t pagenum)
+<pre>
+<code>
+void buffer_complete_read_without_write(int table_id, pagenum_t pagenum){
+	Buffer* bufptr = bufHash[table_id - 1].find_Hash(pagenum);
+
+	if(bufptr == NULL){
+		return;
+	}
+
+	bufptr->pin_count--;
+
+	remove_from_LRUList(bufptr);
+	insert_into_LRUList(bufptr);
+}
+</code>
+</pre>
+버퍼에서 불러온 페이지를 다 읽었을 때 호출하는 함수입니다. 페이지에 대한 변경이 일어나지 않았을 때 사용합니다.
+마찬가지로 pin count를 내리고 LRU List에 재삽입합니다.   
+   
++ ### void flushBuf(int table_id)
+<pre>
+<code>
+void flushBuf(int table_id){
+	DoubleListNode* head = bufHash[table_id - 1].get_listHead();
+	DoubleListNode* c = head->next;
+
+	Buffer* targetptr;
+
+	while(head->next != NULL){
+		pagenum_t targetpagenum = c->pagenum;
+		c = c->next;
+		if(c == NULL){
+			c = head->next;
+		}
+
+		targetptr = bufHash[table_id - 1].find_Hash(targetpagenum);
+		if (targetptr == NULL){
+			continue;
+		}
+		
+		if (targetptr->pin_count == 0){
+			if (targetptr->is_dirty == true){
+				file_write_page(targetptr->table_id, targetptr->pagenum, &(targetptr->frame));
+				targetptr->is_dirty = false;
+			}
+			bufHash[targetptr->table_id - 1].delete_Hash(targetptr->pagenum);
+			bufStack->push(targetptr);
+				
+			remove_from_LRUList(targetptr);
+			targetptr->table_id = -1;
+			targetptr->pagenum = 0;		
+		}
+	}
 }
 </code>
 </pre>
