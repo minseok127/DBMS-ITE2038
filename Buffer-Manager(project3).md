@@ -22,7 +22,7 @@ Features
 + API
 
 > ### Introduce
-Buffer Manager는   
+
 
 > ### Header File
    
