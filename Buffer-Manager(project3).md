@@ -273,7 +273,132 @@ ListNode 또한 동적할당을 해제합니다.
 listHead의 주소값을 반환합니다.   
     
 > ### API
+Buffer Manager가 수행하는 API들을 구현한 부분입니다.   
+buffer.cpp에 작성되었습니다.   
 
++ #### int init_db(int num_buf)   
+<pre>
+<code>
+BufferStack* bufStack;
+BufferHash* bufHash;
+Buffer* buf;
+Buffer* LRU_Head;
+Buffer* LRU_Tail;
+
+int init_db(int num_buf){
+    buf = new Buffer[num_buf];
+    if(buf == NULL){
+        return -1;
+    }
+
+    LRU_Head = new Buffer;
+    LRU_Tail = new Buffer;
+
+    LRU_Head->next = LRU_Tail;
+    LRU_Tail->prev = LRU_Head;
+
+    bufHash = new BufferHash[MAX_FILE_NUM];
+    if(bufHash == NULL){
+        return -1;
+    }
+    for(int i = 0; i < MAX_FILE_NUM; i++){
+	bufHash[i].setHash(num_buf);
+    }
+
+    bufStack = new BufferStack(num_buf);
+    if(bufStack == NULL){
+        return -1;
+    }
+    for(int i = 0; i < num_buf; i++){
+	bufStack->push(buf + i);
+    }
+
+    return 0;
+}
+</code>
+</pre>
+상단에 있는 변수들은 전역적으로 선언된 변수들로써 버퍼의 제어를 담당합니다.   
+init_db는 이 변수들을 동적할당하고 성공 시 0을, 실패 시 -1을 반환합니다.   
+> 1. bufHash가 가리키는 배열의 크기에 사용되는 MAX_FILE_NUM은 file.h에 정의되어있는 변수입니다. 최대 열 수 있는 파일의 개수를 의미합니다. 또한 각 인덱스가 가리키는 BufferHash객체는 각 테이블 id를 담당합니다.   
+> 2. init_db의 실행은 버퍼풀을 초기화하는 작업이기 때문에 이 함수가 호출되는 시점에는 모든 버퍼가 비어있는 상태여야 합니다. 그렇기에 bufStack이 가리키는 BufferStack 안에는 모든 버퍼가 들어있습니다.   
+
++ #### void buffer_read_page(int table_id, pagenum_t pagenum, page_t* dest)
+<pre>
+<code>
+void buffer_read_page(int table_id, pagenum_t pagenum, page_t* dest){
+	Buffer* bufptr = bufHash[table_id - 1].find_Hash(pagenum);
+	if (bufptr == NULL){
+		bufptr = bufStack->pop();
+
+		if (bufptr == NULL){
+			bufptr = get_from_LRUList();
+			bufHash[bufptr->table_id - 1].delete_Hash(bufptr->pagenum);
+
+			if(bufptr->is_dirty == true){
+				file_write_page(bufptr->table_id, bufptr->pagenum, &(bufptr->frame));
+			}
+			file_read_page(table_id, pagenum, &(bufptr->frame));
+			memcpy(dest, &(bufptr->frame), PAGE_SIZE);
+			
+			bufptr->is_dirty = false;
+			bufptr->pin_count = 1;
+			bufptr->pagenum = pagenum;
+			bufptr->table_id = table_id;
+
+			insert_into_LRUList(bufptr);
+
+			bufHash[table_id - 1].insert_Hash(pagenum, bufptr);
+		}
+		else{
+			file_read_page(table_id, pagenum, &(bufptr->frame));
+			memcpy(dest, &(bufptr->frame), PAGE_SIZE);
+			
+			bufptr->is_dirty = false;
+			bufptr->pin_count = 1;
+			bufptr->pagenum = pagenum;
+			bufptr->table_id = table_id;
+
+			insert_into_LRUList(bufptr);
+
+			bufHash[table_id - 1].insert_Hash(pagenum, bufptr);
+		}
+	}
+	else{
+		if (bufptr->is_dirty == true){
+			file_write_page(table_id, pagenum, &(bufptr->frame));
+			bufptr->is_dirty = false;
+			memcpy(dest, &(bufptr->frame), PAGE_SIZE);
+			bufptr->pin_count++;
+
+			remove_from_LRUList(bufptr);
+			insert_into_LRUList(bufptr);
+		}
+		else{
+			memcpy(dest, &(bufptr->frame), PAGE_SIZE);
+			bufptr->pin_count++;
+
+			remove_from_LRUList(bufptr);
+			insert_into_LRUList(bufptr);
+		}
+	}
+
+	return;
+}
+인자로 들어온 table_id와 pagenum에 해당하는 버퍼가 보유한 페이지를 dest라는 페이지로 복사하는 함수입니다.   
+과정은 다음과 같습니다.   
+   
+1. talbe_id를 담당하는 해쉬 객체를 통하여 해당 pagenum이 존재하는 버퍼의 위치를 찾습니다.   
+   
+2-1. 만약 없다면 스택 객체에서 pop을 하여 비어있는 버퍼의 위치를 찾습니다.
+&nbsp;ㄱ. 만약 비어있는 버퍼가 있다면 디스크로부터 페이지를 해당 버퍼로 읽어오고, dest에 복사해줍니다.    
+&nbsp;&nbsp;&nbsp;&nbsp;또한 pin_count를 1로 설정한 후 해당 버퍼를 LRU LIST에 삽입하고, 해당 tabe_id의 해쉬객체에도 pagenum과 버퍼의 주소값을 넣어줍니다.    
+&nbsp;ㄴ. 만약 비어있는 버퍼가 없다면 LRU policy에 따라 eviction할 버퍼를 택하고 만약 is_dirty가 true라면 디스크에 write합니다.   
+&nbsp;&nbsp;&nbsp;&nbsp;또한 pin_count를 1로 설정한 후 해당 버퍼를 LRU LIST에 삽입하고, 해당 tabe_id의 해쉬객체에도 pagenum과 버퍼의 주소값을 넣어줍니다.    
+   
+2-2. 만약 이미 해당 pagenum이 버퍼에 있다면 is_dirty가 true라면 디스크에 write하고 is_dirty를 false로 설정합니다.   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;해당 버퍼의 페이지를 dest로 복사해주고 pin_count를 1만큼 증가시킵니다.   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;LRU List를 수정하기 위해 해당 버퍼를 LRU List에서 제거하고 다시 삽입합니다.
+   
 
 ## File Manager API modification
 + Introduce
