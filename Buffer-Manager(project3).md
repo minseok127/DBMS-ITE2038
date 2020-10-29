@@ -19,6 +19,7 @@ Features
 ## Buffer Manager API
 + Introduce
 + Header File
++ 버퍼 제어를 위한 객체들의 멤버 함수
 + API
 
 > ### Introduce
@@ -129,12 +130,14 @@ struct Buffer{
 </code>
 </pre>
 버퍼를 나타내는 구조체입니다.   
-페이지를 담을 frame변수는 FreePage로 설정하였습니다. 바이트단위로 값을 복사할 것이기 때문에 페이지의 자료형은 중요하지 않습니다.   
-table_id는 해당 버퍼가 어떤 테이블 id의 페이지를 담았는지를 나타내는 변수입니다. -1로 초기화하였습니다.   
-pagenum은 해당 버퍼가 담고 있는 페이지의 번호입니다. 0으로 초기화하였습니다.   
-is_dirty는 디스크와 차이가 생겼는지를 나타내는 변수입니다. false로 초기화하였습니다.   
-pin_count는 해당 버퍼를 얼마나 많은 사용자가 읽고 있는 지 나타내는 변수입니다. 0으로 초기화하였습니다.   
-next, prev는 LRU LIST 구조를 나타내기 위하여 사용하는 변수입니다. NULL로 초기화하였습니다.   
+   
+FreePage 구조체를 사용하여 버퍼에 페이지를 저장하기 위한 frame,       
+버퍼가 어떤 테이블 id의 페이지를 담았는지를 나타내기 위한 table_id,      
+버퍼가 담고 있는 페이지의 번호를 나타내기 위한 pagenum,    
+버퍼와 디스크가 차이가 생겼는지를 나타내는 is_dirty,   
+해당 버퍼를 얼마나 많은 사용자가 읽고 있는 지 나타내는 pin_count,   
+LRU LIST 구조를 나타내기 위하여 next, prev 변수를 사용하였습니다.  
+>바이트단위로 버퍼에서 인덱스로, 디스크에서 버퍼로 페이지를 복사할 것이기 때문에 어떠한 페이지 구조체를 사용해도 상관없습니다.     
    
 <pre>
 <code>
@@ -145,9 +148,130 @@ struct DoubleListNode{
 };
 </code>
 </pre>
+해쉬 테이블에 담겨있는 리스트에 쓰이는 구조체입니다.   
+리스트 내에서 서로를 연결하기 위해 prev, next라는 포인터,   
+페이지번호에 대한 정보를 담기 위한 pagenum을 가지고 있습니다.   
    
+<pre>
+<code>
+struct ListNode {
+	pagenum_t pagenum = 0;
+	Buffer* bufptr = NULL;
+	ListNode* next = NULL;
+	DoubleListNode* pagelistptr = NULL;
+};
+</code>
+</pre>
+해쉬 테이블에 사용되는 구조체입니다.   
+페이지 번호를 나타내는 pagenum변수,    
+만약 같은 해쉬값을 가졌다면 Linked list형태로 연결해야 하기 때문에 next변수,      
+해당하는 페이지가 해시테이블 내에 존재함을 기억하기 위해서 사용되는 리스트의 노드를 가리키는 pagelistptr변수,   
+해당 페이지를 담고 있는 버퍼를 가리키는 bufptr변수를 가졌습니다.   
+   
+<pre>
+<code>
+class BufferHash {
+private:
+	ListNode* hash;
+	int size_hash;
+	DoubleListNode* listHead;
+public:
+	int find_pos(pagenum_t pagenum);
+	Buffer* find_Hash(pagenum_t pagenum);
+	void insert_Hash(pagenum_t pagenum, Buffer* bufptr);
+	void delete_Hash(pagenum_t);
+	void setHash(int size_hash);
+	void insert_doublelist(DoubleListNode* nodeptr);
+	void delete_doublelist(DoubleListNode* nodeptr);
+	DoubleListNode* get_listHead();
+	~BufferHash();
+};
+</code>
+</pre>
+테이블 id마다 가지게 될 해쉬 객체에 대한 클래스입니다.   
+해쉬 테이블의 맨 앞 주소를 hash변수를 통해 관리합니다.   
+listHead는 테이블에 존재하는 페이지 번호들을 관리할 리스트의 헤더입니다.
+size_hash는 해쉬 테이블이 몇칸을 가질지에 대한 변수입니다.   
+   
+<pre>
+<code>
+class BufferStack {
+private:
+	int num_stack;
+	int max_num;
+	Buffer** stack;
+public:
+	BufferStack(int max_num);
+	void push(Buffer* bufptr);
+	Buffer* pop();
+	bool is_full();
+	~BufferStack();
+};
+</code>
+</pre>
+빈 버퍼를 관리할 스택에 대한 클래스입니다.   
+현재 스택에 들어있는 값의 개수를 나타내는 num_stack,   
+스택의 용량을 나타내는 max_num,   
+버퍼 구조체의 주소값을 담을 스택을 가리키는 stack 변수로 구성되어있습니다.   
+   
+> ### 버퍼 제어를 위한 객체들의 멤버 함수
+클래스들의 멤버함수에 대한 설명입니다.   
+buffer.cpp에 작성되었습니다.   
+   
++ #### BufferStack::BufferStack(int max_num)
+BufferStack 클래스의 생성자입니다.    
+스택의 용량을 max_num으로 설정하고 num_stack을 0으로 초기화시킵니다.   
+Buffer*에 대한 max_num크기의 배열을 동적할당한 후 그 배열을 stack변수가 가리키게 합니다.   
+
++ #### BufferStack::~BufferStack()
+BufferStack 클래스의 소멸자입니다.   
+동적할당 되었던 stack을 delete[]로 해제시킵니다.
+
++ #### void BufferStack::push(Buffer* bufptr)
+인자로 받은 버퍼의 주소값을 스택에 넣습니다.   
+
++ #### Buffer* BufferStack::pop()
+스택에 가장 최근에 들어온 버퍼의 주소값을 뽑아내고 반환합니다.   
+
++ #### bool BufferStack::is_full()
+스택이 가득 찼다면 true를, 아니라면 false를 반환합니다.   
+
++ #### void BufferHash::setHash(int size_hash)
+인자로 받은 값으로 size_hash를 설정합니다.   
+ListNode[size_hash]를 동적할당하고 hash가 가리키도록 합니다.   
+DoubleListNode를 동적할당하고 listHead가 가리키도록 합니다.   
+
++ #### BufferHash::~BufferHash()
+BufferHash함수의 소멸자입니다.   
+hash를 delete[]를 통하여 해제시키고, listHead 또한 delete를 통하여 해제시킵니다.   
+
++ #### int BufferHash::find_pos(pagenum_t pagenum)
+인자로 들어온 pagenum을 해쉬함수로 계산한 결과값을 반환합니다.   
+
++ #### Buffer* BufferHash::find_Hash(pagenum_t pagenum)
+인자로 들어온 pagenum이 존재해야하는 Linked List를 찾고 해당 pagenum을 가지고 있는 노드를 탐색합니다.   
+만약 해당 pagenum이 존재한다면 그에 대응하는 버퍼의 위치를 반환하고, 없다면 NULL을 반환합니다.   
+
++ #### void BufferHash::insert_doublelist(DoubleListNode* nodeptr)
+인자로 들어온 nodeptr을 listHead의 next에 위치시킵니다.   
+
++ #### void BufferHash::delete_doublelist(DoubleListNode* nodeptr)
+인자로 들어온 nodeptr의 prev와 next를 서로 연결시키고 해당 노드의 동적할당은 해제시킵니다.   
+
++ #### void BufferHash::insert_Hash(pagenum_t pagenum, Buffer* bufptr)
+인자로 들어온 pagenum과 bufptr을 담고있는 ListNode를 동적할당 합니다.    
+또한 pagenum 정보를 담은 DoubleListNode를 동적할당 시키고 ListNode의 pagelistptr가 가리키게 합니다.   
+find_pos로 pagenum이 존재해야하는 링크드 리스트의 위치를 찾고 해당 리스트에 ListNode를 삽입합니다. 또한 insert_doublelist를 실행합니다.   
+
++ #### void BufferHash::delete_Hash(pagenum_t pagenum)
+인자로 들어온 pagenum이 존재하는 ListNode를 찾고, 해당 노드가 가리키고 있는 pagelistpr에 대해서 delete_doublelist를 실행한 후   
+ListNode 또한 동적할당을 해제합니다.   
+
++ #### DoubleListNode* BufferHash::get_listHead()
+listHead의 주소값을 반환합니다.   
+    
 > ### API
-   
+
 ## File Manager API modification
 + Introduce
 + Modification
