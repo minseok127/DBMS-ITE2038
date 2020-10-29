@@ -29,25 +29,24 @@ Buffer Manager는 API의 작동을 위해 크게 4가지의 객체를 이용하�
 페이지들을 메모리 상에 저장할 Buffer Structure들의 배열입니다.   
 유저가 Buffer Manager의 API 중 하나인 init_db함수를 통해 동적할당하여 생성하게 됩니다.   
    
-그림 넣고   
-
 + #### LRU_HEAD, LRU_TAIL (LRU LIST)   
 이번 디자인에서는 페이지 eviction을 위해 LRU policy를 사용합니다.      
 이를 위해 Buffer 배열의 논리적인 구조를 Double Linked List 형태로 생각할 것이고 이를 제어하기 위해 사용되는 객체들입니다.   
    
-기본 구조 그림 넣어주고   
+![lru_기본](uploads/27ebc40aaa51773a26ddb3694ff1a3df/lru_기본.png)
    
 버퍼에 새로운 페이지가 들어오게 된다면 LRU_HEAD의 next가 해당 페이지를 가리키게 됩니다.   
    
-그림 넣고   
+![lru_삽입](uploads/4c02bc4f57309feb95fca27f0ed77262/lru_삽입.png)
    
 이미 버퍼에 존재하던 페이지에 재접근 시에는 해당 페이지를 LRU LIST에서 뽑아낸 뒤 LRU_HEAD의 next로 보냅니다.   
+이 때, 해당 버퍼가 Tail의 prev일 필요는 없습니다.   
    
-그림 넣고   
+![재삽입](uploads/66f440055a47b67c1bbdee29fc8f623c/재삽입.png)
    
 버퍼에 존재하지 않는 페이지를 읽어야 하는데 버퍼에 자리가 없다면 LRU policy에 따라서 LRU_TAIL의 prev를 eviction하게 됩니다.   
    
-그림 넣고   
+![에빅션](uploads/3e048bd2d55ca0610ea42fd5ddf40fe9/에빅션.png)
    
 만약 해당 prev의 pin이 0이 아니라면 LRU LIST를 순회하면서 eviction할 버퍼의 위치를 찾습니다.   
    
