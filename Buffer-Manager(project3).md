@@ -22,7 +22,9 @@ Features
 + API
 
 > ### Introduce
-
+Buffer Manager는 API의 작동을 위해 크게 4가지의 객체를 이용하게 됩니다.     
+    
++ Buffer 배열 
 
 > ### Header File
    
