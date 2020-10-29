@@ -21,7 +21,13 @@ Features
 + Header File
 + API
 
+> ### Introduce
+Buffer Manager는   
 
+> ### Header File
+   
+> ### API
+   
 ## File Manager API modification
 
 ## Index Manager Command modification
