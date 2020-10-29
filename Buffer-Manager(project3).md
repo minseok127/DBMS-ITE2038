@@ -48,9 +48,10 @@ Buffer Manager는 API의 작동을 위해 크게 4가지의 객체를 이용하�
    
 ![에빅션](uploads/3e048bd2d55ca0610ea42fd5ddf40fe9/에빅션.png)
    
-만약 해당 prev의 pin이 0이 아니라면 LRU LIST를 순회하면서 eviction할 버퍼의 위치를 찾습니다.   
+만약 해당 prev의 pin_count가 0이 아니라면 LRU LIST를 순회하면서 eviction할 버퍼의 위치를 찾습니다.   
+LRU_Head의 next까지 도착했음에도 eviction할 버퍼를 찾지 못했다면 LRU_Tail의 prev부터 다시 시작합니다.
    
-그림 넣고   
+![순회](uploads/211cc6f6ec932e8e18c5774430aabb4c/순회.png)
    
 그리고 이러한 LRU LIST의 제어들에는 insert_into_LRUList, remove_from_LRUList, get_from_LRUList 이라는 함수들이 사용됩니다.   
 
@@ -60,16 +61,16 @@ Buffer Manager는 API의 작동을 위해 크게 4가지의 객체를 이용하�
 init_db를 호출하면 테이블 id마다 해쉬 객체가 할당됩니다.    
 내부에는 해쉬 테이블과 이 테이블 안에 어떤 페이지들이 있는 지 알 수 있는 리스트가 존재합니다.   
     
-그림넣기
-    
 해쉬 테이블은 버퍼의 개수만큼 칸을 가지고 chaining hash 디자인을 사용합니다. 또한 해쉬 함수로 나머지를 이용합니다.   
 예를 들어 버퍼의 개수가 100개라는 가정하에, 1058이라는 페이지 번호는 해쉬테이블에서 58번 자리에 위치하게 됩니다.   
+   
+![해쉬클래스](uploads/a364b4781d9d18478a9f5760c8085212/해쉬클래스.png)
    
 해쉬 테이블에 대해서 해당 객체는 find_Hash, insert_Hash, delete_Hash 함수를 사용하게 됩니다.   
    
 find_Hash를 통해 해당 테이블에 대해서 유저가 원하는 페이지를 담은 버퍼의 위치를 파악합니다.   
    
-그림 넣기   
+![find해쉬](uploads/fdf801c5b382229185d413c79dd97be5/find해쉬.png)
    
 insert_Hash를 통해 해쉬 객체에 새로운 페이지를 추가하게 됩니다. 
    
