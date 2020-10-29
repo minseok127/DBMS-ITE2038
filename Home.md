@@ -11,4 +11,4 @@ Features
    
 b+tree의 작동방식에 대한 위키와 이를 디스크 상에서 어떻게 구현하는 지에 대한 위키로 구별하여 작성되었습니다.     
 + [Basic Operations of B+Tree](https://hconnect.hanyang.ac.kr/2020_ite2038_11800/2020_ite2038_2016025650/-/wikis/Disk-based-b-tree(Milestone1))
-+ Disk based B+Tree
++ [Disk based B+Tree](https://hconnect.hanyang.ac.kr/2020_ite2038_11800/2020_ite2038_2016025650/-/wikis/Disk-based-b-tree(Milestone2))
