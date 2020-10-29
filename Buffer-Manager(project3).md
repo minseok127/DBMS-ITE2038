@@ -17,7 +17,9 @@ Features
 [3. Index Manager Command modification](#index-manager-command-modification)
    
 ## Buffer Manager API
-
++ Introduce
++ Header File
++ Source Code
 ## File Manager API modification
 
 ## Index Manager Command modification
