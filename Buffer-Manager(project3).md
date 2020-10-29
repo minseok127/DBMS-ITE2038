@@ -443,7 +443,7 @@ void buffer_complete_read_without_write(int table_id, pagenum_t pagenum){
 }
 </code>
 </pre>
-버퍼에서 불러온 페이지를 다 읽었을 때 호출하는 함수입니다. 페이지에 대한 변경이 일어나지 않았을 때 사용합니다.
+버퍼에서 불러온 페이지를 다 읽었을 때 호출하는 함수입니다. 페이지에 대한 변경이 일어나지 않았을 때 사용합니다.   
 마찬가지로 pin count를 내리고 LRU List에 재삽입합니다.   
    
 + ### void flushBuf(int table_id)
@@ -536,7 +536,91 @@ Buffer* get_from_LRUList(){
 }
 </code>
 </pre>
+LRU policy에 따라서 eviction할 버퍼를 찾고 그것의 주소값을 반환하는 함수입니다.   
+LRU_Tail의 prev에서 시작하여 pin count가 0인 버퍼를 찾고 LRU_Head까지 왔다면 다시 LRU_Tail의 prev로 돌아옵니다.   
+조건을 만족하는 버퍼를 찾았다면 LRU List에서 제거해줍니다.   
+   
+* ### void insert_into_LRUList(Buffer* bufptr)
+<pre>
+<code>
+void insert_into_LRUList(Buffer* bufptr){
+	Buffer* next = LRU_Head->next;
+	
+	bufptr->next = next;
+	next->prev = bufptr;
 
+	LRU_Head->next = bufptr;
+	bufptr->prev = LRU_Head;
+}
+</code>
+</pre>
+인자로 들어온 버퍼를 LRU List에 삽입하는 함수입니다.   
+LRU_Head의 next에 삽입합니다.   
+   
+* ### void remove_from_LRUList(Buffer* bufptr)
+<pre>
+<code>
+void remove_from_LRUList(Buffer* bufptr){
+	Buffer* next = bufptr->next;
+	Buffer* prev = bufptr->prev;
+
+	next->prev = prev;
+	prev->next = next;
+
+	bufptr->next = NULL;
+	bufptr->prev = NULL;
+}
+</pre>
+</code>
+인자로 들어온 버퍼를 LRU List에서 제거하는 함수입니다.   
+   
+* ### pagenum_t buffer_alloc_page(int table_id)
+<pre>
+<code>
+pagenum_t buffer_alloc_page(int table_id){
+	HeaderPage headerPage;
+	FreePage target_freePage;
+	pagenum_t allocated_pageNum;
+
+	buffer_read_page(table_id, 0, &headerPage);
+
+	if(headerPage.free_pageNum == 0){
+		buffer_complete_read_without_write(table_id, 0);
+		return file_alloc_page(table_id);
+	}
+
+	buffer_read_page(table_id, headerPage.free_pageNum, &target_freePage);
+	allocated_pageNum = headerPage.free_pageNum;
+	headerPage.free_pageNum = target_freePage.next_free_pageNum;
+	target_freePage.next_free_pageNum = 0;
+	
+	buffer_write_page(table_id, allocated_pageNum, &target_freePage);
+	buffer_write_page(table_id, 0, &headerPage);
+
+	return allocated_pageNum;
+}
+</code>
+</pre>
+Index 계층에서 새로운 페이지를 할당받고 싶을 때 호출하는 함수입니다.   
+만약 FreePage가 더이상 없다면 File 계층의 API인 file_alloc_page를 호출하고,   
+만약 남은 FreePage가 있다면 해당 페이지를 버퍼로 불러옵니다.   
+두 경우 모두 새로운 FreePage의 페이지번호를 반환합니다.   
+   
+* ### void buffer_free_page(int table_id, pagenum_t pagenum)
+<pre>
+<code>
+void buffer_free_page(int table_id, pagenum_t pagenum){
+	if (pagenum == 0) {
+		return;
+	}
+
+	file_free_page(table_id, pagenum);
+}
+</code>
+</pre>
+Index 계층에서 페이지를 FreePage로 전환하고 싶을 때 호출하는 함수입니다.   
+만약 해당 페이지가 헤더페이지라면 요청을 무시하고, 그렇지 않다면 File 계층의 file_free_page를 호출합니다.   
+   
 ## File Manager API modification
 + Introduce
 + Modification
