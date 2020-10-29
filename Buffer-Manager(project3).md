@@ -19,7 +19,9 @@ Features
 ## Buffer Manager API
 + Introduce
 + Header File
-+ Source Code
++ API
+
+
 ## File Manager API modification
 
 ## Index Manager Command modification
