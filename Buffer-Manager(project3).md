@@ -234,6 +234,7 @@ BufferStack 클래스의 소멸자입니다.
 
 + #### Buffer* BufferStack::pop()
 스택에 가장 최근에 들어온 버퍼의 주소값을 뽑아내고 반환합니다.   
+만약 스택이 비어있다면 NULL을 반환합니다.     
 
 + #### bool BufferStack::is_full()
 스택이 가득 찼다면 true를, 아니라면 false를 반환합니다.   
@@ -399,10 +400,8 @@ void buffer_read_page(int table_id, pagenum_t pagenum, page_t* dest){
    
 + 만약 이미 해당 pagenum이 버퍼에 있다면 is_dirty가 true일 때 디스크에 write하고 is_dirty를 false로 설정합니다.   
 &nbsp;&nbsp;&nbsp;&nbsp;해당 버퍼의 페이지를 dest로 복사해주고 pin_count를 1만큼 증가시킵니다.   
-&nbsp;&nbsp;&nbsp;&nbsp;LRU List를 수정하기 위해 해당 버퍼를 LRU List에서 제거하고 다시 삽입합니다.
-
-이거 그냥 알고리즘 그림으로 바꿀까?
-
+&nbsp;&nbsp;&nbsp;&nbsp;LRU List를 수정하기 위해 해당 버퍼를 LRU List에서 제거하고 다시 삽입합니다.   
+   
 **버퍼로부터 read를 하였다면 pin count가 증가하게 됩니다. 이 때, pin count를 내린다는 것은 read를 마쳤다는 것을 의미합니다.**   
 **이번 디자인에서 read를 마치는 행위는 write함수와 complete함수를 사용합니다.**   
    
@@ -485,43 +484,14 @@ void flushBuf(int table_id){
 }
 </code>
 </pre>
-
-이것도 그냥 알고리즘 그림으로 표현할까?
-
+   
 인자로 들어온 table_id를 담당하는 해쉬객체의 listHead를 불러오고 해당 리스트 헤더의 next가 없어질때까지 제거를 반복합니다.   
 제거는 리스트 헤더의 next부터 시작합니다.      
       
 타겟이 되는 DoubleListNode가 담고 있는 pagenum을 사용하여 해쉬 테이블을 탐색하고, 해당 페이지 번호를 갖는 버퍼에 접근 후 pin이 0이라면 flush를 진행합니다. 만약 is_dirty가 true라면 디스크에 반영을 해줍니다.    
 해쉬테이블에서 해당 페이지번호를 지우고 LRU List에서도 제거해줍니다. 버퍼 또한 초기화를 시켜줍니다.   
    
-pin이 0이 아니라면 가리키던 DobuleListNode의 next로 이동하여 같은 과정을 수행하고 만약 next가 NULL이라면 다시 헤더의 next부터 실행합니다.   
-   
-+ ### int shutdown_db()
-<pre>
-<code>
-int shutdown_db(){
-	for(int table_id = 1; table_id <= MAX_FILE_NUM && fileTable.getFd(table_id) != -2; table_id++){
-		flushBuf(table_id);
-		if (fileTable.getFd(table_id) == -1){
-			continue;
-		}
-		else if (close_file(table_id) < 0){
-			return -1;
-		}
-	}
-	
-	delete[] bufHash;
-	delete[] buf;
-	delete bufStack;
-	delete LRU_Head;
-	delete LRU_Tail;
-
-	return 0;
-}
-</code>
-</pre>
-모든 table_id를 flush시키고 버퍼를 제어하던 객체들의 동적할당을 해제해줍니다.
-> fileTable이라는 변수는 file.cpp에 선언된 함수로써 파일들의 정보를 다루는 변수입니다. 위의 코드에서는 해당 테이블 아이디에 파일이 할당되지 않은 경우를 제외하는 데 사용되었습니다.   
+pin이 0이 아니라면 가리키던 DobuleListNode의 next로 이동하여 같은 과정을 수행하고 만약 next가 NULL이라면 다시 listHead의 next부터 실행합니다.   
    
 + ### Buffer* get_from_LRUList()
 <pre>
