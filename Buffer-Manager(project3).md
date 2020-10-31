@@ -1,3 +1,44 @@
+Introduce
+==========
+이번 위키에서는 Buffer Manager의 구현에 대하여 설명하겠습니다.        
+   
+이에 앞서, 각각의 파일들이 어떠한 역할을 하는 지에 대해 설명하겠습니다.  
+   
+![구조](uploads/2bcac11e6a636968cd89a886dd78f421/구조.png)
+    
+Buffer Manager는 File Manager의 API를 사용하고, Index Manager는 Buffer Manager의 API를 사용하기 때문에
+file.h => buffer.h => bpt.h 와 같은 순서로 include를 진행하였습니다.   
+   
+file.cpp는 File Manager의 역할을 구현하는 부분으로써 file.h를 include하였습니다.    
+또한 내부적으로 Buffer Manager의 API(buffer read/write)도 사용하기 때문에 바로 위의 계층인 buffer.h 또한 include하였습니다.
+    
+buffer.cpp는 Buffer Manager의 역할을 구현하는 부분입니다. buffer.h를 include하였습니다.   
+   
+bpt.cpp는 Index Manager의 역할을 구현하는 부분입니다. bpt.h를 include하였습니다.   
+   
+   
+또한 이제부터는 하나의 파일이 아니라 여러 파일을 대상으로 하기 때문에 그에 따르는 변경사항도 설명하겠습니다.      
+이제부터는 여러 파일들을 대상으로 작동해야하기 때문에 이들을 관리하는 추가적인 객체들을 정의하였습니다.   
+   
+![테이블매니저](uploads/34a58d5494adfb26906f9791df3f017d/테이블매니저.png)
+   
+file_Table객체는 File Manager부분에 정의되어있으며 특정 파일의 i노드 번호와 fd에 대한 정보를 가지고 있습니다.   
+i노드 번호는 기본적으로 0으로 초기화되어있고, fd는 -2로 초기화되어있습니다.   
+fd를 -2로 초기화한 이유는 해당 파일이 open되었다가 close되었다면 -1로 설정하고, 아예 열린적이 없다면 -2로 유지하기 위함입니다.   
+   
+TableManager객체는 Index Manager부분에 정의되어있으며 최대 MAX_TABLE_NUM개의 file_Table객체들을 table_id개념으로 관리합니다.   
+   
+구현에 대한 보다 자세한 설명은 [File Manager API modification](#file-manager-api-modification)과 [Index Manager Command modification](#index-manager-command-modification)에서 설명하겠습니다.   
+
+
+Features
+========
+[1. Buffer Manager API](#buffer-manager-api)
+   
+[2. File Manager API modification](#file-manager-api-modification)
+   
+[3. Index Manager Command modification](#index-manager-command-modification)
+   
 Buffer Manager   
 ==============
 디스크 I/O를 최소화 하기위해 Index 계층과 Disk 계층 사이에 위치하게 되는 계층입니다.   
@@ -7,14 +48,6 @@ Buffer Manager
 2. 페이지에 대한 수정을 할 때 디스크를 바로 수정하지 않고 버퍼를 수정함으로써 Index 계층이 디스크 입력을 기다리지 않고 다음 행동 수행 가능
    
 본 프로젝트에서는 c++언어를 사용하여 구현하였고 리눅스 환경에서 g++ 7.5.0로 컴파일되었습니다.
-  
-Features
-========
-[1. Buffer Manager API](#buffer-manager-api)
-   
-[2. File Manager API modification](#file-manager-api-modification)
-   
-[3. Index Manager Command modification](#index-manager-command-modification)
    
 ## Buffer Manager API
 + [Introduce](#introduce)
