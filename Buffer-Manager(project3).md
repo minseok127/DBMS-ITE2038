@@ -4,18 +4,20 @@ Introduce
    
 이에 앞서, 각각의 파일들이 어떠한 역할을 하는 지에 대해 설명하겠습니다.  
    
-![구조](uploads/2bcac11e6a636968cd89a886dd78f421/구조.png)
+![구조](uploads/f918a03b77c1afcfdfeec77adfb58962/구조.png)
     
-Buffer Manager는 File Manager의 API를 사용하고, Index Manager는 Buffer Manager의 API를 사용하기 때문에
+Buffer Manager는 File Manager의 API를 사용하고, Index Manager는 Buffer Manager의 API를 사용하기 때문에   
 file.h => buffer.h => bpt.h 와 같은 순서로 include를 진행하였습니다.   
    
 file.cpp는 File Manager의 역할을 구현하는 부분으로써 file.h를 include하였습니다.    
 또한 내부적으로 Buffer Manager의 API(buffer read/write)도 사용하기 때문에 바로 위의 계층인 buffer.h 또한 include하였습니다.
     
-buffer.cpp는 Buffer Manager의 역할을 구현하는 부분입니다. buffer.h를 include하였습니다.   
+buffer.cpp는 Buffer Manager의 역할을 구현하는 부분입니다. buffer.h를 include하였습니다.  
+또한 내부적으로 Index Manager의 TableManager라는 객체를 사용하기 때문에 바로 위의 계층인 bpt.h 또한 include하였습니다.  
    
 bpt.cpp는 Index Manager의 역할을 구현하는 부분입니다. bpt.h를 include하였습니다.   
-   
+
+> 인접한 layer에서 서로가 제공하는 자원을 사용하는 것은 layer architecture에 위배되지 않기 때문에 함수나 변수의 call path를 하나의 방향으로 제한하지 않았습니다.
    
 또한 이제부터는 하나의 파일이 아니라 여러 파일을 대상으로 하기 때문에 그에 따르는 변경사항도 설명하겠습니다.      
 이제부터는 여러 파일들을 대상으로 작동해야하기 때문에 이들을 관리하는 추가적인 객체들을 정의하였습니다.   
@@ -60,7 +62,7 @@ Buffer Manager는 API의 작동을 위해 크게 4가지의 객체를 이용하�
     
 + #### Buffer 배열   
 페이지들을 메모리 상에 저장할 Buffer Structure들의 배열입니다.   
-유저가 Buffer Manager의 API 중 하나인 init_db함수를 통해 동적할당하여 생성하게 됩니다.   
+앞으로 소개될 init_db이라는 함수를 통해 동적할당하여 생성하게 됩니다.   
    
 + #### LRU_HEAD, LRU_TAIL (LRU LIST)   
 이번 디자인에서는 페이지 eviction을 위해 LRU policy를 사용합니다.      
@@ -146,7 +148,9 @@ delete 시에는 해쉬 테이블 상의 노드로부터 주소값을 얻어 바
 + #### 스택 객체
 현재 어떠한 페이지도 올라오지 않은 버퍼의 주소값을 스택을 사용하여 가지고 있는 객체입니다.   
 버퍼에 존재하지 않는 새로운 페이지를 버퍼에 올릴 때 스택을 활용하여 비어있는 버퍼를 찾습니다.   
-
+   
+![스택](uploads/dcd380b7e03c0fd9aad389afbfaa432f/스택.png)
+     
 > ### Header File
 Buffer Manageer가 사용하는 구조체 및 클래스, 함수들을 선언하는 부분입니다.   
 buffer.h로 작성되었습니다.   
@@ -225,7 +229,7 @@ public:
 </pre>
 테이블 id마다 가지게 될 해쉬 객체에 대한 클래스입니다.   
 해쉬 테이블의 맨 앞 주소를 hash변수를 통해 관리합니다.   
-listHead는 테이블에 존재하는 페이지 번호들을 관리할 리스트의 헤더입니다.
+listHead는 테이블에 존재하는 페이지 번호들을 관리할 리스트의 헤더입니다.   
 size_hash는 해쉬 테이블이 몇칸을 가질지에 대한 변수입니다.   
    
 <pre>
@@ -313,54 +317,29 @@ buffer.cpp에 작성되었습니다.
 + #### int init_db(int num_buf)   
 <pre>
 <code>
+extern TableManager* tableManager;
+
 BufferStack* bufStack;
 BufferHash* bufHash;
 Buffer* buf;
 Buffer* LRU_Head;
 Buffer* LRU_Tail;
-
-int init_db(int num_buf){
-    buf = new Buffer[num_buf];
-    if(buf == NULL){
-        return -1;
-    }
-
-    LRU_Head = new Buffer;
-    LRU_Tail = new Buffer;
-
-    LRU_Head->next = LRU_Tail;
-    LRU_Tail->prev = LRU_Head;
-
-    bufHash = new BufferHash[MAX_FILE_NUM];
-    if(bufHash == NULL){
-        return -1;
-    }
-    for(int i = 0; i < MAX_FILE_NUM; i++){
-	bufHash[i].setHash(num_buf);
-    }
-
-    bufStack = new BufferStack(num_buf);
-    if(bufStack == NULL){
-        return -1;
-    }
-    for(int i = 0; i < num_buf; i++){
-	bufStack->push(buf + i);
-    }
-
-    return 0;
 }
 </code>
 </pre>
-상단에 있는 변수들은 전역적으로 선언된 변수들로써 버퍼의 제어를 담당합니다.   
-init_db는 이 변수들을 동적할당하고 성공 시 0을, 실패 시 -1을 반환합니다.   
-> 1. bufHash가 가리키는 배열의 크기에 사용되는 MAX_FILE_NUM은 file.h에 정의되어있는 변수입니다. 최대 열 수 있는 파일의 개수를 의미합니다. 또한 각 인덱스가 가리키는 BufferHash객체는 각 테이블 id를 담당합니다.   
-> 2. init_db의 실행은 버퍼풀을 초기화하는 작업이기 때문에 이 함수가 호출되는 시점에는 모든 버퍼가 비어있는 상태여야 합니다. 그렇기에 bufStack이 가리키는 BufferStack 안에는 모든 버퍼가 들어있습니다.   
+Buffer Manager에서는 File Manager의 API들의 사용이 필요합니다.    
+이를 위해서는 파일의 fd가 필요하고 바로 위의 Index 계층에 존재하는 TableManager를 통해서 값을 받습니다.    
+그리하여 해당 변수를 extern을 사용하여 선언하였습니다.   
+   
+또한 버퍼 제어에 사용되는 객체들을 전역적으로 선언하였습니다.   
 
 + #### void buffer_read_page(int table_id, pagenum_t pagenum, page_t* dest)
 <pre>
 <code>
 void buffer_read_page(int table_id, pagenum_t pagenum, page_t* dest){
 	Buffer* bufptr = bufHash[table_id - 1].find_Hash(pagenum);
+	int fd = tableManager->get_fileTable(table_id)->getFd();
+	
 	if (bufptr == NULL){
 		bufptr = bufStack->pop();
 
@@ -369,9 +348,9 @@ void buffer_read_page(int table_id, pagenum_t pagenum, page_t* dest){
 			bufHash[bufptr->table_id - 1].delete_Hash(bufptr->pagenum);
 
 			if(bufptr->is_dirty == true){
-				file_write_page(bufptr->table_id, bufptr->pagenum, &(bufptr->frame));
+				file_write_page(fd, bufptr->pagenum, &(bufptr->frame));
 			}
-			file_read_page(table_id, pagenum, &(bufptr->frame));
+			file_read_page(fd, pagenum, &(bufptr->frame));
 			memcpy(dest, &(bufptr->frame), PAGE_SIZE);
 			
 			bufptr->is_dirty = false;
@@ -384,7 +363,7 @@ void buffer_read_page(int table_id, pagenum_t pagenum, page_t* dest){
 			bufHash[table_id - 1].insert_Hash(pagenum, bufptr);
 		}
 		else{
-			file_read_page(table_id, pagenum, &(bufptr->frame));
+			file_read_page(fd, pagenum, &(bufptr->frame));
 			memcpy(dest, &(bufptr->frame), PAGE_SIZE);
 			
 			bufptr->is_dirty = false;
@@ -399,21 +378,15 @@ void buffer_read_page(int table_id, pagenum_t pagenum, page_t* dest){
 	}
 	else{
 		if (bufptr->is_dirty == true){
-			file_write_page(table_id, pagenum, &(bufptr->frame));
+			file_write_page(fd, pagenum, &(bufptr->frame));
 			bufptr->is_dirty = false;
-			memcpy(dest, &(bufptr->frame), PAGE_SIZE);
-			bufptr->pin_count++;
-
-			remove_from_LRUList(bufptr);
-			insert_into_LRUList(bufptr);
 		}
-		else{
-			memcpy(dest, &(bufptr->frame), PAGE_SIZE);
-			bufptr->pin_count++;
+		
+		memcpy(dest, &(bufptr->frame), PAGE_SIZE);
+		bufptr->pin_count++;
 
-			remove_from_LRUList(bufptr);
-			insert_into_LRUList(bufptr);
-		}
+		remove_from_LRUList(bufptr);
+		insert_into_LRUList(bufptr);
 	}
 
 	return;
@@ -487,6 +460,8 @@ void flushBuf(int table_id){
 	DoubleListNode* head = bufHash[table_id - 1].get_listHead();
 	DoubleListNode* c = head->next;
 
+	int fd = tableManager->get_fileTable(table_id)->getFd();
+
 	Buffer* targetptr;
 
 	while(head->next != NULL){
@@ -503,7 +478,7 @@ void flushBuf(int table_id){
 		
 		if (targetptr->pin_count == 0){
 			if (targetptr->is_dirty == true){
-				file_write_page(targetptr->table_id, targetptr->pagenum, &(targetptr->frame));
+				file_write_page(fd, targetptr->pagenum, &(targetptr->frame));
 				targetptr->is_dirty = false;
 			}
 			bufHash[targetptr->table_id - 1].delete_Hash(targetptr->pagenum);
@@ -521,8 +496,10 @@ void flushBuf(int table_id){
 인자로 들어온 table_id를 담당하는 해쉬객체의 listHead를 불러오고 해당 리스트 헤더의 next가 없어질때까지 제거를 반복합니다.   
 제거는 리스트 헤더의 next부터 시작합니다.      
       
-타겟이 되는 DoubleListNode가 담고 있는 pagenum을 사용하여 해쉬 테이블을 탐색하고, 해당 페이지 번호를 갖는 버퍼에 접근 후 pin이 0이라면 flush를 진행합니다. 만약 is_dirty가 true라면 디스크에 반영을 해줍니다.    
+타겟이 되는 DoubleListNode가 담고 있는 pagenum을 사용하여 해쉬 테이블을 탐색하고,    
+해당 페이지 번호를 갖는 버퍼에 접근 후 pin이 0이라면 flush를 진행합니다. 만약 is_dirty가 true라면 디스크에 반영을 해줍니다.    
 해쉬테이블에서 해당 페이지번호를 지우고 LRU List에서도 제거해줍니다. 버퍼 또한 초기화를 시켜줍니다.   
+해당 버퍼가 비어졌기 때문에 스택에 push해줍니다.   
    
 pin이 0이 아니라면 가리키던 DobuleListNode의 next로 이동하여 같은 과정을 수행하고 만약 next가 NULL이라면 다시 listHead의 next부터 실행합니다.   
    
@@ -590,11 +567,13 @@ pagenum_t buffer_alloc_page(int table_id){
 	FreePage target_freePage;
 	pagenum_t allocated_pageNum;
 
+	int fd = tableManager->get_fileTable(table_id)->getFd();
+
 	buffer_read_page(table_id, 0, &headerPage);
 
 	if(headerPage.free_pageNum == 0){
 		buffer_complete_read_without_write(table_id, 0);
-		return file_alloc_page(table_id);
+		return file_alloc_page(table_id, fd);
 	}
 
 	buffer_read_page(table_id, headerPage.free_pageNum, &target_freePage);
@@ -630,7 +609,8 @@ Index 계층에서 페이지를 FreePage로 전환하고 싶을 때 호출하는
 만약 해당 페이지가 헤더페이지라면 요청을 무시하고, 그렇지 않다면 File 계층의 file_free_page를 호출합니다.   
    
 ## File Manager API modification
-+ Introduce
++ Introduce   
+
 + Modification
 ## Index Manager Command modification
 + Introduce
