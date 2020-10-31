@@ -845,7 +845,7 @@ int open_table(char* path) {
 2. open에 실패했다면 -1을 반환합니다.   
 3. 성공하였다면 stat함수를 이용하여 해당 파일의 i노드 번호를 확인합니다.   
 4. table_id를 1부터 최대 MAX_TABLE_NUM까지 확인하며 해당 i노드와 같은 번호의 file_table이 존재하는 지 확인합니다.   
-5. 만약 같은 것이 존재한다면 해당 file_table의 fd를 최신으로 수정해줍니다.   
+5. 만약 같은 것이 존재한다면 해당 file_table의 fd를 1번에서의 open 결과로 생긴 fd로 수정해줍니다.   
 6. 만약 존재하지 않는다면 fd가 -2인 file_table을 찾은 후에 해당 파일의 fd를 설정하고 i노드 번호도 설정합니다.
 7. 그러나 MAX_TABLE_NUM까지 갔음에도 위의 경우들이 발생하지 않는다면 해당 파일을 close하고 -1을 반환합니다.   
 
