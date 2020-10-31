@@ -36,10 +36,12 @@ TableManager객체는 Index Manager부분에 정의되어있으며 최대 MAX_TA
 Features
 ========
 [1. Buffer Manager API](#buffer-manager-api)
+
+[2. About Pin](#about-pin)
    
-[2. File Manager API modification](#file-manager-api-modification)
+[3. File Manager API modification](#file-manager-api-modification)
    
-[3. Index Manager Command modification](#index-manager-command-modification)
+[4. Index Manager Command modification](#index-manager-command-modification)
    
 Buffer Manager   
 ==============
@@ -51,7 +53,6 @@ Buffer Manager
    
 본 프로젝트에서는 c++언어를 사용하여 구현하였고 리눅스 환경에서 g++ 7.5.0로 컴파일되었습니다.
    
-## Buffer Manager API
 + [Introduce](#introduce)
 + [Header File](#header-file)
 + [버퍼 제어를 위한 객체들의 멤버 함수](#버퍼-제어를-위한-객체들의-멤버-함수)
@@ -314,7 +315,7 @@ listHead의 주소값을 반환합니다.
 Buffer Manager가 수행하는 API들을 구현한 부분입니다.   
 buffer.cpp에 작성되었습니다.   
 
-+ #### int init_db(int num_buf)   
++ #### 전역 변수
 <pre>
 <code>
 extern TableManager* tableManager;
@@ -608,10 +609,68 @@ void buffer_free_page(int table_id, pagenum_t pagenum){
 Index 계층에서 페이지를 FreePage로 전환하고 싶을 때 호출하는 함수입니다.   
 만약 해당 페이지가 헤더페이지라면 요청을 무시하고, 그렇지 않다면 File 계층의 file_free_page를 호출합니다.   
    
+## About Pin
+버퍼 매니저의 API인 buffer_read_page를 사용한 후에는 buffer_write_page 혹은 buffer_complete_read_without_write를 사용합니다.   
+또한 버퍼 API들을 사용하게 되는 Index 계층과 File 계층의 함수들에서는 여러 함수들의 call path가 내부적으로 빈번히 발생합니다.   
+   
+그렇기 때문에 어떠한 함수 내에서 buffer_read_page를 호출하였다면    
+**반드시 다른 함수가 호출되기 이전에 write/complete을 사용하여 pin을 내려주도록 구현하겠습니다.**   
+
 ## File Manager API modification
 + Introduce   
+project3에서는 이전과 다르게 크게 두가지가 바뀌었습니다.  
+   
+1. 여러 파일의 사용
+2. 버퍼 매니저의 구현
+   
+여러 파일을 사용하게 됨에 따라서 각각의 파일에 대한 정보를 저장할 필요성이 생겼습니다. 그리하여 file_table이라는 새로운 객체를   
+구현하였습니다. 또한 read/write 동작들의 인자에 fd를 구별하는 정보가 필요해졌습니다.   
+   
+버퍼 매니저의 구현으로 인해 디스크 I/O를 바로바로 해줄 필요가 없어졌습니다. 그리하여 file_alloc_page와 file_free_page 내부에서 버퍼 매니저의 API를 활용하여 구현할 것입니다.   
+   
++ Modification   
+<pre>
+<code>
+class file_table{
+private:
+	ino_t iNum = 0;
+	int fd = -2;
+public:
+	int getFd();
+	ino_t getInodeNum();
+	void setFd(int fd);
+	void setInodeNum(ino_t inum);
+};
+</code>
+</pre>
+파일의 정보를 저장하기 위한 클래스입니다.   
+i노드 번호와 fd에 대한 정보를 담고 있습니다.   
 
-+ Modification
+getFd는 해당 객체가 담고 잇는 fd값을 반환합니다.   
+getInodeNum은 해당 객체가 담고 있는 i노드 번호를 반환합니다.   
+   
+setFd는 해당 객체가 담고 있는 fd값을 변경합니다.   
+setInodeNum은 해당 객체가 담고 있는 i노드 번호를 변경합니다.   
+   
+<pre>
+<code>
+pagenum_t file_alloc_page(int table_id, int fd);
+void file_free_page(int table_id, pagenum_t pagenum);
+void file_read_page(int fd, pagenum_t pagenum, page_t* dest);
+void file_write_page(int fd, pagenum_t pagenum, const page_t* src);
+
+int open_file(char* path);
+int close_file(int fd);
+</code>
+</pre>
+file_alloc_page는 내부에서 버퍼 매니저의 API와 file_write_page를 모두 사용하기에 인자로 table_id와 fd를 받도록 변경했습니다.   
+file_free_page는 내부에서 버퍼 매니저의 API만 사용해도 되기에 table_id와 FreePage화 시킬 pagenum을 인자로 받도록 변경했습니다.
+file_read_page와 file_write_page는 파일을 구별하기 위해 fd라는 인자를 추가로 받도록 변경되었습니다.    
+   
+파일을 닫을 수 있기 위해 close_file이라는 함수가 추가되었습니다.   
+
+
+
 ## Index Manager Command modification
 + Introduce
 + Modification
