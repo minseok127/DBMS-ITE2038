@@ -617,7 +617,7 @@ Index 계층에서 페이지를 FreePage로 전환하고 싶을 때 호출하는
 **반드시 다른 함수가 호출되기 이전에 write/complete을 사용하여 pin을 내려주도록 구현하겠습니다.**   
 
 ## File Manager API modification
-+ Introduce   
+   
 project3에서는 이전과 다르게 크게 두가지가 바뀌었습니다.  
    
 1. 여러 파일의 사용
@@ -626,9 +626,9 @@ project3에서는 이전과 다르게 크게 두가지가 바뀌었습니다.
 여러 파일을 사용하게 됨에 따라서 각각의 파일에 대한 정보를 저장할 필요성이 생겼습니다. 그리하여 file_table이라는 새로운 객체를   
 구현하였습니다. 또한 read/write 동작들의 인자에 fd를 구별하는 정보가 필요해졌습니다.   
    
-버퍼 매니저의 구현으로 인해 디스크 I/O를 바로바로 해줄 필요가 없어졌습니다. 그리하여 file_alloc_page와 file_free_page 내부에서 버퍼 매니저의 API를 활용하여 구현할 것입니다.   
-   
-+ Modification   
+버퍼 매니저의 구현으로 인해 디스크 I/O를 바로바로 해줄 필요가 없어졌습니다. 그리하여 file_alloc_page와 file_free_page 내부에서 버퍼 매니저의 API를 활용하여 구현했습니다. 
+
+> ### file_table
 <pre>
 <code>
 class file_table{
@@ -652,6 +652,7 @@ getInodeNum은 해당 객체가 담고 있는 i노드 번호를 반환합니다.
 setFd는 해당 객체가 담고 있는 fd값을 변경합니다.   
 setInodeNum은 해당 객체가 담고 있는 i노드 번호를 변경합니다.   
    
+> ### 함수들의 변경사항
 <pre>
 <code>
 pagenum_t file_alloc_page(int table_id, int fd);
@@ -664,13 +665,192 @@ int close_file(int fd);
 </code>
 </pre>
 file_alloc_page는 내부에서 버퍼 매니저의 API와 file_write_page를 모두 사용하기에 인자로 table_id와 fd를 받도록 변경했습니다.   
-file_free_page는 내부에서 버퍼 매니저의 API만 사용해도 되기에 table_id와 FreePage화 시킬 pagenum을 인자로 받도록 변경했습니다.
+file_free_page는 내부에서 버퍼 매니저의 API만 사용해도 되기에 table_id와 FreePage화 시킬 pagenum을 인자로 받도록 변경했습니다.   
 file_read_page와 file_write_page는 파일을 구별하기 위해 fd라는 인자를 추가로 받도록 변경되었습니다.    
    
-파일을 닫을 수 있기 위해 close_file이라는 함수가 추가되었습니다.   
-
-
+파일을 닫을 수 있기 위해 close_file이라는 함수가 추가되었습니다. close를 호출하고 성공하면 0, 실패하면 -1을 반환합니다.      
 
 ## Index Manager Command modification
-+ Introduce
-+ Modification
+Index 매니저 또한 변경사항이 적용되었습니다.   
+여러 file_table객체들을 table_id개념으로 관리하기 위해 TableManager라는 클래스가 도입되었습니다.
+
+> ### TableManager   
+<pre>
+<code>
+class TableManager{
+private:
+  file_table* fileTable;
+public:
+  TableManager();
+  ~TableManager();
+  file_table* get_fileTable(int table_id);
+};
+</code>
+</pre>
+fileTable은 file_table객체들의 배열을 가리킵니다.   
+get_fileTable은 인자로온 table_id에 해당하는 file_table객체의 주소값을 반환합니다.   
+
+> ### 전역 변수들
+<pre>
+<code>
+TableManager* tableManager;
+
+extern Buffer* buf;
+extern BufferHash* bufHash;
+extern BufferStack* bufStack;
+extern Buffer* LRU_Head;
+extern Buffer* LRU_Tail;
+</code>
+</pre>
+버퍼 제어를 위한 변수들을 extern을 이용해 선언하였고, TableManager객체를 제어하기 위해 전역적으로 변수를 선언하였습니다.   
+
+> ### 추가된 함수들
+
+* ### int init_db(int num_buf)
+<pre>
+<code>
+int init_db(int num_buf){
+	tableManager = new TableManager;
+	if(tableManager == NULL){
+		return -1;
+	}
+
+    buf = new Buffer[num_buf];
+    if(buf == NULL){
+        return -1;
+    }
+
+	LRU_Head = new Buffer;
+	LRU_Tail = new Buffer;
+
+	LRU_Head->next = LRU_Tail;
+	LRU_Tail->prev = LRU_Head;
+
+    bufHash = new BufferHash[MAX_TABLE_NUM];
+    if(bufHash == NULL){
+        return -1;
+    }
+	for(int i = 0; i < MAX_TABLE_NUM; i++){
+		bufHash[i].setHash(num_buf);
+	}
+
+    bufStack = new BufferStack(num_buf);
+    if(bufStack == NULL){
+        return -1;
+    }
+	for(int i = 0; i < num_buf; i++){
+		bufStack->push(buf + i);
+	}
+
+    return 0;
+}
+</code>
+</pre>
+프로그램 실행에서 가장 먼저 호출되어야하는 함수입니다. 버퍼 제어를 위한 객체들과 TableManager객체를 동적할당합니다.   
+
+* ### int shutdown_db()
+<pre>
+<code>
+int shutdown_db(){
+	for(int table_id = 1; table_id <= MAX_TABLE_NUM && tableManager->get_fileTable(table_id)->getFd() != -2; table_id++){
+		flushBuf(table_id);
+		if (tableManager->get_fileTable(table_id)->getFd() == -1){
+			continue;
+		}
+		else if (close_file(tableManager->get_fileTable(table_id)->getFd()) < 0){
+			return -1;
+		}
+	}
+	
+	delete[] bufHash;
+	delete[] buf;
+	delete bufStack;
+	delete LRU_Head;
+	delete LRU_Tail;
+	delete tableManager;
+
+	return 0;
+}
+</code>
+</pre>
+모든 테이블을 flush시키고 해당 테이블을 close합니다.   
+또한 동적할당 되었던 자원들의 메모리를 해제시킵니다.   
+
+* ### int close_table(int table_id)
+<pre>
+<code>
+int close_table(int table_id){
+	flushBuf(table_id);
+	return close_file(tableManager->get_fileTable(table_id)->getFd());
+}
+</code>
+</pre>
+특정 테이블만 close하는 함수입니다. 해당 테이블id에 대하여 flush를 시키고 파일을 닫습니다.   
+성공하면 0, 실패하면 -1을 반환합니다.   
+
+> ### 내부적으로 크게 변경된 함수
+* ### int open_table(char* path)
+<pre>
+<code>
+int open_table(char* path) {
+	if(buf == NULL || bufHash == NULL || bufStack == NULL || strlen(path) > MAX_PATH_LEN){
+		return -1;
+	}
+	int fd = open_file(path);
+	
+	if (fd == -1){
+		return -1;
+	}
+
+	struct stat st;
+	stat(path, &st);
+	int table_id;
+
+	for(table_id = 1; table_id <= MAX_TABLE_NUM && tableManager->get_fileTable(table_id)->getFd() != -2; table_id++){
+		if (tableManager->get_fileTable(table_id)->getInodeNum() == st.st_ino){
+			break;
+		}
+	}
+	if (table_id > MAX_TABLE_NUM){
+		close(fd);
+		return -1;
+	}
+	else if (tableManager->get_fileTable(table_id)->getFd() == -2){
+		tableManager->get_fileTable(table_id)->setInodeNum(st.st_ino);
+		tableManager->get_fileTable(table_id)->setFd(fd);
+	}
+	else{
+		tableManager->get_fileTable(table_id)->setFd(fd);
+	}
+	
+	HeaderPage headerPage;
+	buffer_read_page(table_id, 0, &headerPage);
+	if(headerPage.num_page == 0){
+		headerPage.num_page = 1;
+		headerPage.free_pageNum = 0;
+		headerPage.root_pageNum = 0;
+		buffer_write_page(table_id, 0, &headerPage);
+	}
+	else{
+		buffer_complete_read_without_write(table_id, 0);
+	}
+	return table_id;
+}
+</code>
+</pre>
+여러 파일들을 다뤄야 하도록 바뀐 상황에서 가장 큰 변화가 생긴 open_table함수입니다.   
+   
+1. 버퍼 제어를 위한 객체들이 아직 동적할당되지 못하였거나 인자로 들어온 경로의 길이가 MAX_PATH_LEN보다 크다면 -1을 반환합니다.   
+그렇지 않다면 해당 경로의 파일을 open합니다.   
+2. open에 실패했다면 -1을 반환합니다.   
+3. 성공하였다면 stat함수를 이용하여 해당 파일의 i노드 번호를 확인합니다.   
+4. table_id를 1부터 MAX_TABLE_NUM까지 확인하며 해당 i노드와 같은 번호의 file_table이 존재하는 지 확인합니다.   
+5. 만약 같은 것이 존재한다면 해당 file_table의 fd를 최신으로 수정해줍니다.   
+6. 만약 존재하지 않는다면 fd가 -2인 file_table을 찾은 후에 해당 파일의 fd를 설정하고 i노드 번호도 설정합니다.
+7. 그러나 MAX_TABLE_NUM까지 갔음에도 위의 경우들이 발생하지 않는다면 해당 파일을 close하고 -1을 반환합니다.   
+
+파일이 정상적으로 열렸고 TableManager에 설정이 되었다면 이후 과정은 파일 매니저가 아니라 버퍼매니저를 사용하였다는 것만 차이날뿐 이전과 동일합니다. 해당 파일이 갖게되는 table_id를 반환합니다.   
+ 
+> ### 그 외의 함수들
+다른 함수들의 경우에는 File 매니저의 API들을 사용하던 것에서 Buffer 매니저의 API들을 사용한다는 변경이 생겼습니다. 그 외 함수 내에서의 흐름은 이전과 같습니다.   
+ 
