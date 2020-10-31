@@ -559,7 +559,7 @@ void remove_from_LRUList(Buffer* bufptr){
 </pre>
 </code>
 인자로 들어온 버퍼를 LRU List에서 제거하는 함수입니다.     
-   
+     
 * ### pagenum_t buffer_alloc_page(int table_id)
 <pre>
 <code>
