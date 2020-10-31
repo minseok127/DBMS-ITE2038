@@ -23,11 +23,14 @@ bpt.cpp는 Index Manager의 역할을 구현하는 부분입니다. bpt.h를 inc
    
 ![테이블매니저](uploads/34a58d5494adfb26906f9791df3f017d/테이블매니저.png)
    
-file_Table객체는 File Manager부분에 정의되어있으며 특정 파일의 i노드 번호와 fd에 대한 정보를 가지고 있습니다.   
+file_Table객체와 TableManager 객체는 여러 파일들을 테이블 id 개념을 적용하여 관리하기 위한 객체들입니다.   
+Index Manager 계층에 위치하고 있습니다.   
+   
+file_Table객체는 특정 파일의 i노드 번호와 fd에 대한 정보를 가지고 있습니다.   
 i노드 번호는 기본적으로 0으로 초기화되어있고, fd는 -2로 초기화되어있습니다.   
 fd를 -2로 초기화한 이유는 해당 파일이 open되었다가 close되었다면 -1로 설정하고, 아예 열린적이 없다면 -2로 유지하기 위함입니다.   
    
-TableManager객체는 Index Manager부분에 정의되어있으며 최대 MAX_TABLE_NUM개의 file_Table객체들을 table_id개념으로 관리합니다.   
+TableManager객체는 최대 MAX_TABLE_NUM개의 file_Table객체들을 table_id개념으로 관리합니다.   
    
 구현에 대한 보다 자세한 설명은 [File Manager API modification](#file-manager-api-modification)과 [Index Manager Command modification](#index-manager-command-modification)에서 설명하겠습니다.   
 
@@ -624,11 +627,33 @@ project3에서는 이전과 다르게 크게 두가지가 바뀌었습니다.
 1. 여러 파일의 사용
 2. 버퍼 매니저의 구현
    
-여러 파일을 사용하게 됨에 따라서 각각의 파일에 대한 정보를 저장할 필요성이 생겼습니다. 그리하여 file_table이라는 새로운 객체를   
-구현하였습니다. 또한 read/write 동작들의 인자에 fd를 구별하는 정보가 필요해졌습니다.   
+여러 파일을 사용하게 됨에 따라서 각각의 파일에 대한 정보를 구별할 필요성이 생겼습니다.    
+그리하여 read/write 동작들의 인자에 fd를 구별하는 정보가 추가되었습니다.   
    
 버퍼 매니저의 구현으로 인해 디스크 I/O를 바로바로 해줄 필요가 없어졌습니다. 그리하여 file_alloc_page와 file_free_page 내부에서 버퍼 매니저의 API를 활용하여 구현했습니다. 
+   
+> ### 함수들의 변경사항
+<pre>
+<code>
+pagenum_t file_alloc_page(int table_id, int fd);
+void file_free_page(int table_id, pagenum_t pagenum);
+void file_read_page(int fd, pagenum_t pagenum, page_t* dest);
+void file_write_page(int fd, pagenum_t pagenum, const page_t* src);
 
+int open_file(char* path);
+int close_file(int fd);
+</code>
+</pre>
+file_alloc_page는 내부에서 버퍼 매니저의 API와 file_write_page를 모두 사용하기에 인자로 table_id와 fd를 받도록 변경했습니다.   
+file_free_page는 내부에서 버퍼 매니저의 API만 사용해도 되기에 table_id와 FreePage화 시킬 pagenum을 인자로 받도록 변경했습니다.   
+file_read_page와 file_write_page는 파일을 구별하기 위해 fd라는 인자를 추가로 받도록 변경되었습니다.    
+   
+파일을 닫을 수 있기 위해 close_file이라는 함수가 추가되었습니다. close를 호출하고 성공하면 0, 실패하면 -1을 반환합니다.      
+
+## Index Manager Command modification
+Index 매니저 또한 변경사항이 적용되었습니다.   
+서로 다른 여러 file들을 table_id개념으로 관리하기 위해 file_table과 TableManager라는 클래스가 도입되었습니다.   
+   
 > ### file_table
 <pre>
 <code>
@@ -652,28 +677,6 @@ getInodeNum은 해당 객체가 담고 있는 i노드 번호를 반환합니다.
    
 setFd는 해당 객체가 담고 있는 fd값을 변경합니다.   
 setInodeNum은 해당 객체가 담고 있는 i노드 번호를 변경합니다.   
-   
-> ### 함수들의 변경사항
-<pre>
-<code>
-pagenum_t file_alloc_page(int table_id, int fd);
-void file_free_page(int table_id, pagenum_t pagenum);
-void file_read_page(int fd, pagenum_t pagenum, page_t* dest);
-void file_write_page(int fd, pagenum_t pagenum, const page_t* src);
-
-int open_file(char* path);
-int close_file(int fd);
-</code>
-</pre>
-file_alloc_page는 내부에서 버퍼 매니저의 API와 file_write_page를 모두 사용하기에 인자로 table_id와 fd를 받도록 변경했습니다.   
-file_free_page는 내부에서 버퍼 매니저의 API만 사용해도 되기에 table_id와 FreePage화 시킬 pagenum을 인자로 받도록 변경했습니다.   
-file_read_page와 file_write_page는 파일을 구별하기 위해 fd라는 인자를 추가로 받도록 변경되었습니다.    
-   
-파일을 닫을 수 있기 위해 close_file이라는 함수가 추가되었습니다. close를 호출하고 성공하면 0, 실패하면 -1을 반환합니다.      
-
-## Index Manager Command modification
-Index 매니저 또한 변경사항이 적용되었습니다.   
-여러 file_table객체들을 table_id개념으로 관리하기 위해 TableManager라는 클래스가 도입되었습니다.
 
 > ### TableManager   
 <pre>
