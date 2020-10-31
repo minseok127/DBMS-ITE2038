@@ -854,5 +854,9 @@ int open_table(char* path) {
 파일이 정상적으로 열렸고 TableManager에 설정이 되었다면 이후 과정은 파일 매니저가 아니라 버퍼매니저를 사용하였다는 것만 차이날뿐 이전과 동일합니다. 해당 파일이 갖게되는 table_id를 반환합니다.   
  
 > ### 그 외의 함수들
-다른 함수들의 경우에는 File 매니저의 API들을 사용하던 것에서 Buffer 매니저의 API들을 사용한다는 변경이 생겼습니다. 그 외 함수 내에서의 흐름은 이전과 같습니다.   
+db_insert, db_delete, db_find는 table_id에 대한 인자가 추가로 생겼습니다.   
+
+또한 기존에 Index 매니저가 사용하던 File 매니저의 API들은 Buffer 매니저의 API들로 수정되었습니다.   
+   
+그 외 함수 내에서의 call path는 이전과 같습니다.   
  
