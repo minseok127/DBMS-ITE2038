@@ -758,12 +758,16 @@ int init_db(int num_buf){
 int shutdown_db(){
 	for(int table_id = 1; table_id <= MAX_TABLE_NUM && tableManager->get_fileTable(table_id)->getFd() != -2; table_id++){
 		flushBuf(table_id);
+
 		if (tableManager->get_fileTable(table_id)->getFd() == -1){
+			tableManager->get_fileTable(table_id)->setFd(-2);
 			continue;
 		}
 		else if (close_file(tableManager->get_fileTable(table_id)->getFd()) < 0){
 			return -1;
 		}
+
+		tableManager->get_fileTable(table_id)->setFd(-2);
 	}
 	
 	delete[] bufHash;
@@ -785,7 +789,14 @@ int shutdown_db(){
 <code>
 int close_table(int table_id){
 	flushBuf(table_id);
-	return close_file(tableManager->get_fileTable(table_id)->getFd());
+	int ret = close_file(tableManager->get_fileTable(table_id)->getFd());
+
+	if (ret == 0){
+		tableManager->get_fileTable(table_id)->setFd(-1);
+	}
+	else{
+		return -1;
+	}
 }
 </code>
 </pre>
