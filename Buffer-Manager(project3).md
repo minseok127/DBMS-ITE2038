@@ -327,7 +327,6 @@ BufferHash* bufHash;
 Buffer* buf;
 Buffer* LRU_Head;
 Buffer* LRU_Tail;
-}
 </code>
 </pre>
 Buffer Manager에서는 File Manager의 API들의 사용이 필요합니다.    
