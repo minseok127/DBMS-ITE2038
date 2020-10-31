@@ -348,8 +348,10 @@ void buffer_read_page(int table_id, pagenum_t pagenum, page_t* dest){
 			bufptr = get_from_LRUList();
 			bufHash[bufptr->table_id - 1].delete_Hash(bufptr->pagenum);
 
+                        int old_fd = tableManager->get_fileTable(bufptr->table_id)->getFd();
+
 			if(bufptr->is_dirty == true){
-				file_write_page(fd, bufptr->pagenum, &(bufptr->frame));
+				file_write_page(old_fd, bufptr->pagenum, &(bufptr->frame));
 			}
 			file_read_page(fd, pagenum, &(bufptr->frame));
 			memcpy(dest, &(bufptr->frame), PAGE_SIZE);
