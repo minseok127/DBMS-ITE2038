@@ -4,18 +4,16 @@ Introduce
    
 이에 앞서, 각각의 파일들이 어떠한 역할을 하는 지에 대해 설명하겠습니다.  
    
-![구조](uploads/f918a03b77c1afcfdfeec77adfb58962/구조.png)
+![구조](uploads/8864a21d9f6422a129b4108509693d62/구조.png)
     
 Buffer Manager는 File Manager의 API를 사용하고, Index Manager는 Buffer Manager의 API를 사용하기 때문에   
 file.h => buffer.h => bpt.h 와 같은 순서로 include를 진행하였습니다.   
    
-file.cpp는 File Manager의 역할을 구현하는 부분으로써 file.h를 include하였습니다.    
-또한 내부적으로 Buffer Manager의 API(buffer read/write)도 사용하기 때문에 바로 위의 계층인 buffer.h 또한 include하였습니다.
+file.cpp는 File Manager의 역할을 구현하는 코드입니다.
     
-buffer.cpp는 Buffer Manager의 역할을 구현하는 부분입니다. buffer.h를 include하였습니다.  
-또한 내부적으로 Index Manager의 TableManager라는 객체를 사용하기 때문에 바로 위의 계층인 bpt.h 또한 include하였습니다.  
+buffer.cpp는 Buffer Manager의 역할을 구현하는 코드입니다.
    
-bpt.cpp는 Index Manager의 역할을 구현하는 부분입니다. bpt.h를 include하였습니다.   
+bpt.cpp는 Index Manager의 역할을 구현하는 코드입니다.
 
 > 인접한 layer에서 서로가 제공하는 자원을 사용하는 것은 layer architecture에 위배되지 않기 때문에 함수나 변수의 call path를 하나의 방향으로 제한하지 않았습니다.
    
