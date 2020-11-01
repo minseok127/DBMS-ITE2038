@@ -30,7 +30,7 @@ fd를 -2로 초기화한 이유는 해당 파일이 open되었다가 close되었
    
 TableManager객체는 최대 MAX_TABLE_NUM개의 file_Table객체들을 table_id개념으로 관리합니다.   
    
-구현에 대한 보다 자세한 설명은 [File Manager API modification](#file-manager-api-modification)과 [Index Manager Command modification](#index-manager-command-modification)에서 설명하겠습니다.   
+구현에 대한 보다 자세한 설명은 [Index Manager Command modification](#index-manager-command-modification)에서 설명하겠습니다.   
 
 
 Features
