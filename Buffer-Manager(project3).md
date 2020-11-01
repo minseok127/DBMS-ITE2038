@@ -13,9 +13,7 @@ file.cpp는 File Manager의 역할을 구현하는 코드입니다.
     
 buffer.cpp는 Buffer Manager의 역할을 구현하는 코드입니다.
    
-bpt.cpp는 Index Manager의 역할을 구현하는 코드입니다.
-
-> 인접한 layer에서 서로가 제공하는 자원을 사용하는 것은 layer architecture에 위배되지 않기 때문에 함수나 변수의 call path를 하나의 방향으로 제한하지 않았습니다.
+bpt.cpp는 Index Manager의 역할을 구현하는 코드입니다.   
    
 또한 이제부터는 하나의 파일이 아니라 여러 파일을 대상으로 하기 때문에 이들을 관리하는 추가적인 객체들을 정의하였습니다.   
    
