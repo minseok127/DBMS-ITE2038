@@ -23,8 +23,9 @@ bpt.cpp는 Index Manager의 역할을 구현하는 부분입니다. bpt.h를 inc
    
 ![테이블매니저](uploads/34a58d5494adfb26906f9791df3f017d/테이블매니저.png)
    
-file_Table객체와 TableManager 객체는 여러 파일들을 테이블 id 개념을 적용하여 관리하기 위한 객체들입니다.   
-Index Manager 계층에 위치하고 있습니다.   
+file_Table객체와 TableManager 객체는 여러 파일들을 테이블 id 개념을 적용하여 관리하기 위한 객체들입니다.    
+어떤 테이블에 접근할 지 결정하는 것은 레코드의 logical한 위치를 파악하는 Index Manager 계층이 담당하는 것이 맞다고 생각하여    
+해당 객체들을 Index Manager 계층에 위치시켰습니다.   
    
 file_Table객체는 특정 파일의 i노드 번호와 fd에 대한 정보를 가지고 있습니다.   
 i노드 번호는 기본적으로 0으로 초기화되어있고, fd는 -2로 초기화되어있습니다.   
