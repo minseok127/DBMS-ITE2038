@@ -827,7 +827,7 @@ int open_table(char* path) {
 		}
 	}
 	if (table_id > MAX_TABLE_NUM){
-		close(fd);
+		close_file(fd);
 		return -1;
 	}
 	else if (tableManager->get_fileTable(table_id)->getFd() == -2){
