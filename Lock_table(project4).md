@@ -23,7 +23,7 @@ Lock Table API
 
 > ### Lock Table의 구조
 
-그림넣어주고
+![테ㅐ이블구조](uploads/2f11849abbce5b7875b437447f64b94e/테ㅐ이블구조.png)
 
 * #### lock_t
 <pre>
