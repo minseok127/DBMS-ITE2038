@@ -14,12 +14,12 @@ lock_table.cpp에 구현되었습니다.
 
 Feature
 ========
-1. Lock Table API
+[1. Lock Table API](#lock-table-api)
 
 Lock Table API
 ==============
-+ Lock Table의 구조
-+ API
++ [Lock Table의 구조](#lock-table의-구조)
++ [API](#api)
 
 > ### Lock Table의 구조
 
