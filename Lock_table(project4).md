@@ -87,8 +87,8 @@ Lock Table 클래스입니다.
 * #### 전역 변수 및 헤더파일
 <pre>
 <code>
-#include <lock_table.h>
-#include <pthread.h>
+#include &#60lock_table.h&#62
+#include &#60pthread.h&#62
 
 #define LOCK_TABLE_SIZE (15)
 
