@@ -137,6 +137,8 @@ bool is_dead(lock_t* target){
    
 ![is_dead](uploads/ae99fb20212f9abae5cd53e40979063c/is_dead.png)
    
+중복되는거 제거하는 거 추가@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@   
+   
 * ### int trx_rollback(int trx_id, int table_id, int64_t key)
 인자로 받은 trx_id, table_id, key에 해당하는 record를 record_log에 저장되어있던 original record로 되돌리는 함수입니다.   
    
