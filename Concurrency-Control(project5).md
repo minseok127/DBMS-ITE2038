@@ -545,22 +545,7 @@ int db_find(int table_id, int64_t key, char* ret_val, int trx_id) {
                 buffer_complete_read_without_write(table_id, leafPageNum);
       
                 pthread_mutex_lock(&lock_table_latch);
-                pthread_mutex_lock(&trx_manager_latch);
-                lock_t* c = trx_manager->get_trxNode(trx_id)->lock_head;
-                lock_t* del;
-
-                while(c != NULL){
-                   del = c;
-                   c = c->next_lock;
-        
-                   if (del->lock_mode == X && del->is_working){
-                       trx_rollback(del->trx_id, del->sentinel_ptr->table_id, del->sentinel_ptr->key);
-                   }
-                   lock_release(del);
-                }
-
-                trx_manager->delete_trxNode(trx_id);
-                pthread_mutex_unlock(&trx_manager_latch);
+                trx_abort(trx_id);
                 pthread_mutex_unlock(&lock_table_latch);
 
 		return -1;
@@ -584,8 +569,7 @@ int db_find(int table_id, int64_t key, char* ret_val, int trx_id) {
    
 만약 find하고자 하는 key가 페이지 상에 존재하지 않는다면 페이지에 대한 래치를 먼저 풀어주고 해당 트랜잭션을 abort합니다.    
    
-trx_abort에서는 lock_table_latch를 이미 얻은 상황을 가정했지만, 이 상황에서는 lock_table_latch가 없기 때문에    
-lock_table_latch를 먼저 얻고 동작을 수행합니다. -1을 반환합니다.   
+trx_abort 내부에서는 lock_table_latch를 얻지 않기 때문에 lock_table_latch를 먼저 얻고 동작을 수행합니다. -1을 반환합니다.   
    
 이후 Slock을 얻게 되면 다시 buffer_read로 페이지를 읽어서 레코드를 찾은 후에 페이지 래치를 풀어주고 0을 리턴합니다.   
    
@@ -615,22 +599,7 @@ int db_update(int table_id, int64_t key, char* values, int trx_id){
                 buffer_complete_read_without_write(table_id, leafPageNum);
       
                 pthread_mutex_lock(&lock_table_latch);
-                pthread_mutex_lock(&trx_manager_latch);
-                lock_t* c = trx_manager->get_trxNode(trx_id)->lock_head;
-                lock_t* del;
-
-                while(c != NULL){
-                   del = c;
-                   c = c->next_lock;
-        
-                   if (del->lock_mode == X && del->is_working){
-                       trx_rollback(del->trx_id, del->sentinel_ptr->table_id, del->sentinel_ptr->key);
-                   }
-                   lock_release(del);
-                }
-
-                trx_manager->delete_trxNode(trx_id);
-                pthread_mutex_unlock(&trx_manager_latch);
+                trx_abort(trx_id);
                 pthread_mutex_unlock(&lock_table_latch);
 
 		return -1;
@@ -655,9 +624,7 @@ db_find와 마찬가지로 먼저 페이지를 buffer_read로 읽은 후, 레코
 해당 레코드의 위치를 파악한 후 buffer_complete_read_witout_write로 페이지 래치를 풀어주고, lock_acquire를 기다립니다.    
    
 만약 find하고자 하는 key가 페이지 상에 존재하지 않는다면 페이지에 대한 래치를 먼저 풀어주고 해당 트랜잭션을 abort합니다.    
-   
-trx_abort에서는 lock_table_latch를 이미 얻은 상황을 가정했지만, 이 상황에서는 lock_table_latch가 없기 때문에    
-lock_table_latch를 먼저 얻고 동작을 수행합니다. -1을 반환합니다.   
+trx_abort 내부에서는 lock_table_latch를 얻지 않기 때문에 lock_table_latch를 먼저 얻고 동작을 수행합니다. -1을 반환합니다.   
    
 이후 Xlock을 얻게 되면 다시 buffer_read로 페이지를 읽어서 레코드를 찾은 후에 original한 레코드를 trxNode에 저장해주고   
 해당 레코드를 변경한 후 0을 반환합니다.   
