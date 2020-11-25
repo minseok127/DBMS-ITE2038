@@ -26,4 +26,4 @@ b+tree의 작동방식에 대한 위키와 이를 디스크 상에서 어떻게 
 ### 4. Concurrency Control   
 여러 transaction들을 동시에 제어하기 위한 작업입니다.   
 multi thread를 고려해야하기 때문에 매니저들에 크고 작은 변화가 생겼고, transaction을 위한 매니저가 생겼습니다.   
-+ [Concurrency Control]
++ [Concurrency Control](https://hconnect.hanyang.ac.kr/2020_ite2038_11800/2020_ite2038_2016025650/-/wikis/Concurrency-Control(project5))
