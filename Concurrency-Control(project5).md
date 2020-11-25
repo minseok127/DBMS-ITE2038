@@ -25,7 +25,38 @@ Transaction Manager
 각 트랜잭션들의 정보를 설정하거나 불러오는데 쓰이는 trxManager객체와   
 트랜잭션을 사용하기 위해 쓰이는 trx_begin, trx_commit 등과 같은 함수들이 정의되어있습니다.   
    
-* Header
+* Introduce
 * API
 
-* #### Header 
+> #### Introduce
+트랜잭션이 새롭게 생성될 때마다 해당 트랜잭션은 id를 부여받습니다.    
+트랜잭션의 id는 1부터 시작하며 새로운 트랜잭션은 마지막으로 생성되었던 트랜잭션 id에 1을 더한 값을 id로 할당받습니다.    
+   
+트랜잭션이 생성되면 그에 대응하는 trxNode가 생성됩니다. trxNode는 해당 트랜잭션에 대한 다양한 정보를 가지고 있습니다.  
+   
+![trxNode](uploads/3a1a60fbc5f3ac4a8e27f8dca544dadf/trxNode.png)
+   
+트랜잭션이 lock을 생성하고 lock manager에 걸릴 떄마다 해당 lock은 trxNode의 lock head에 추가되게 됩니다.   
+   
+또한 트랜잭션이 db_find나 db_update 도중 lock을 얻지 못하고 대기 상태가 되는 confilct이 일어나면 해당 트랜잭션은 잠들게 되고,   
+confilct이 풀리게 되어야 트랜잭션은 잠에서 깨어나 일하게 됩니다.   
+      
+즉 하나의 트랜잭션당 confilct이 발생한 lock은 존재하거나, 존재하지 않거나 두가지 상태를 유지하게 됩니다.   
+confilct lock은 confilct이 발생한 lock을 가리킵니다. lock head로 표현되는 lock list와는 별개의 포인터입니다.   
+   
+next trxNode는 trxManager가 trxNode를 해쉬테이블 형태로 관리하기 위해 사용되는 포인터입니다.    
+해쉬 테이블 상 next trxNode를 가리팁니다.   
+   
+record log는 해당 트랜잭션이 현재까지 변경해온 레코드들의 기록을 담고 있습니다.   
+trxNode는 레코드들의 record log 객체들을 해쉬테이블 형태로 관리합니다.   
+   
+![record_log](uploads/b74a5778a62c9cfeb831977dcec6374d/record_log.png)
+   
+record_log 객체는 어떤 table id의 무슨 key에 대한 record인지를 구별하기 위한 정보를 가지고,   
+trxNode가 record_log 객체를 해쉬 테이블 형태로 관리하기 때문에 이를 위한 next record_log를 가집니다.   
+   
+또한 record_log 객체는 original_value라는 변수를 가지는데   
+이 변수는 트랜잭션이 변경하기 이전의 레코드를 담고 있습니다. 즉, 트랜잭션이 호출되는 시점에 저장되어있던 레코드를 가집니다.   
+    
+
+   
