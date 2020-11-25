@@ -14,9 +14,9 @@ begin과 commit 사이에서는 db_find와 db_update API를 사용하여 원하�
    
 Features
 ========
-* Transaction Manager
-* Lock
-* Other Modification
+* [Transaction Manager](#transaction-manager)
+* [Lock](#lock)
+* [Other Modification](#other-modification)
 
 Transaction Manager
 ====================
@@ -25,9 +25,9 @@ Transaction Manager
 각 트랜잭션들의 정보를 설정하거나 불러오는데 쓰이는 trxManager객체와   
 트랜잭션을 사용하기 위해 쓰이는 trx_begin, trx_commit 등과 같은 함수들이 정의되어있습니다.   
    
-* Introduce
-* Functions of Transaction Manager
-* API
+* [Introduce](#introduce)
+* [Functions of Transaction Manager](#functions-of-transaction-manager)
+* [API](#api)
 
 > #### Introduce
 트랜잭션이 새롭게 생성될 때마다 해당 트랜잭션은 id를 부여받습니다.    
@@ -207,11 +207,11 @@ Lock
 ====
 project4에서 만들었던 lock manager를 다시 사용하지만 일부 수정사항이 생겼습니다.   
    
-* lock_t & table_entry
-* lock_acquire
-* lock_release
+* [lock_t & table_entry](#lock_t-&-table_entry)
+* [lock_acquire](#lock_acquire)
+* [lock_release](#lock_release)
    
-> #### lock
+> #### lock & table_entry
 
 * ### lock_t
 lock_t 구조체에 추가적인 정보들이 생겼습니다.   
@@ -488,8 +488,8 @@ Other Modification
 ==================
 Concurrency Control을 구현하게 되면서 버퍼 매니저와 인덱스 매니저에도 변경이 생겼습니다.   
    
-* Buffer Manager
-* Index Manager
+* [Buffer Manager](#buffer-manager)
+* [Index Manager](#index-manager)
    
 > #### Buffer Manager
 * buffer_latch
