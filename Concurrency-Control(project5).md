@@ -515,7 +515,7 @@ page_latch를 얻은 후에는 buffer_latch를 놓아주게 됩니다.
 버퍼 래치를 얻고 LRU 리스트를 먼저 수정해줍니다. 그 다음 페이지 래치를 얻고 마지막에 버퍼 래치를 풀어줍니다.   
    
 * ### buffer_complete_read_without_write, buffer_write
-데드락을 피하기 위해 버퍼 래치를 얻지 않습니다. 보유중인 페이지 래치를 풀어줍니다.   
+보유중인 페이지 래치를 풀어줍니다.   
     
 > #### Index Manager
 추가적인 API인 db_update가 생겼고, db_find에 대해서 여러 트랜잭션을 다루기 위한 변화가 생겼습니다.   
