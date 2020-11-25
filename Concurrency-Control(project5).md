@@ -404,7 +404,7 @@ lock_t* lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode)
    
 위와 같은 과정을 거치게 되면 deadlock검사를 안하고 마무리 되는 경우와 daedlock 검사를 해야하는 경우로 나뉩니다.   
    
-deadlock검사를 해서 is_dead가 true가 나온다면 trx_abort를 진행하고,   
+deadlock검사를 해서 is_dead가 true로 나온다면 trx_abort를 진행하고,   
 그렇지 않다면 해당 스레드는 잠들게 됩니다.   
    
 나중에 wait로부터 풀려나게 되면 confilct가 해결되었다는 의미이기 때문에 trxNode의 lock_confilct를 NULL로 설정하고
@@ -482,3 +482,132 @@ int lock_release(lock_t* lock_obj)
 }
 </code>
 </pre>
+![lock_release](uploads/4790fe4d9b99b9b8a1287eef3a46721a/lock_release.png)
+   
+Other Modification
+==================
+Concurrency Control을 구현하게 되면서 버퍼 매니저와 인덱스 매니저에도 변경이 생겼습니다.   
+   
+* Buffer Manager
+* Index Manager
+   
+> #### Buffer Manager
+* buffer_latch
+LRU policy에 의하여 버퍼 풀에 변경이 생길 때, 서로 다른 스레드들이 같은 버퍼 구조체에 접근하게 되는 경우를 방지하기 위해서   
+스레드들이 버퍼 구조체에 접근하여 LRU 리스트를 변경하려면 먼저 buffer_latch라는 mutex를 얻은 후 접근할 수 있습니다.   
+   
+* ### page_latch 
+이번 프로젝트에서는 버퍼 구조에체 pin 대신 page_latch를 활용합니다.   
+스레드가 버퍼 래치를 얻고 페이지 접근에 성공하면 다른 스레드가 해당 페이지에 접근 못하도록 page_latch를 얻어야 합니다.   
+page_latch를 얻은 후에는 buffer_latch를 놓아주게 됩니다.    
+   
+* ### bufStack_latch   
+버퍼 매니저의 함수들을 사용할 때는 비어있는 버퍼 구조체의 위치를 담은 bufStack을 사용해야하는 경우가 생깁니다.   
+해당 객체에도 mutex를 할당하여 여러 스레드가 동시에 접근하지 못하게 하였습니다.   
+   
+* ### bufHash_latch 
+버퍼 매니저의 함수들을 사용할 때는 현재 사용하고 있는 버퍼 구조체의 위치를 담은 bufHash을 사용해야하는 경우가 생깁니다.   
+해당 객체에도 mutex를 할당하여 여러 스레드가 동시에 접근하지 못하게 하였습니다.   
+   
+버퍼 매니저가 가진 함수들의 내부에서는 위와 같은 latch들을 사용하여 여러 스레드들의 접근을 제한합니다.   
+   
+* ### buffer_read_page
+버퍼 래치를 얻고 LRU 리스트를 먼저 수정해줍니다. 그 다음 페이지 래치를 얻고 마지막에 버퍼 래치를 풀어줍니다.   
+   
+* ### buffer_complete_read_without_write, buffer_write
+데드락을 피하기 위해 버퍼 래치를 얻지 않습니다. 보유중인 페이지 래치를 풀어줍니다.   
+    
+> #### Index Manager
+추가적인 API인 db_update가 생겼고, db_find에 대해서 여러 트랜잭션을 다루기 위한 변화가 생겼습니다.   
+또한 여러 스레드들의 접근을 다루기 위해 table_id를 관리하는 tableManager_latch도 추가되었습니다.   
+   
+* ### int db_find(int table_id, int64_t key, char* ret_val, int trx_id)
+<pre>
+<code>
+int db_find(int table_id, int64_t key, char* ret_val, int trx_id) {
+	if (tableManager->get_fileTable(table_id)->getFd() < 0){
+		return -1;
+	}
+	HeaderPage headerPage;
+	LeafPage target_leafPage;
+	
+	buffer_read_page(table_id, 0, &headerPage);
+	buffer_complete_read_without_write(table_id, 0);
+	
+	if (headerPage.root_pageNum == 0) {
+		return -1;
+	}
+	pagenum_t leafPageNum = find_leafPage(table_id, headerPage.root_pageNum, key);
+	buffer_read_page(table_id, leafPageNum, &target_leafPage);
+
+	int i = search_index_location_leaf(target_leafPage.record, key, target_leafPage.num_keys);
+	if (i == -1) {
+		return -1;
+	}
+
+	buffer_complete_read_without_write(table_id, leafPageNum);
+	if (lock_acquire(table_id, key, trx_id, S) == NULL){
+		return -1;
+	}
+
+	buffer_read_page(table_id, leafPageNum, &target_leafPage);
+	strcpy(ret_val, target_leafPage.record[i].value);
+	buffer_complete_read_without_write(table_id, leafPageNum);
+
+	return 0;
+}
+</code>
+</pre>
+이전의 db_find와 달라진 점은 페이지를 buffer_read로 읽은 후, 레코드를 바로 얻는 것이 아니라   
+해당 레코드의 위치를 파악한 후 buffer_complete_read_witout_write로 페이지 래치를 풀어주고, lock_acquire를 기다립니다.   
+   
+이후 Slock을 얻게 되면 다시 buffer_read로 페이지를 읽어서 레코드를 찾은 후에 페이지 래치를 풀어주고 0을 리턴합니다.   
+   
+lock을 얻지 못했다면 -1을 리턴합니다.   
+   
+* ### int db_update(int table_id, int64_t key, char* values, int trx_id)
+<pre>
+<code>
+int db_update(int table_id, int64_t key, char* values, int trx_id){
+	if (tableManager->get_fileTable(table_id)->getFd() < 0){
+		return -1;
+	}
+
+	HeaderPage headerPage;
+	LeafPage target_leafPage;
+
+	buffer_read_page(table_id, 0, &headerPage);
+	buffer_complete_read_without_write(table_id, 0);
+	if (headerPage.root_pageNum == 0) {
+		return -1;
+	}
+	pagenum_t leafPageNum = find_leafPage(table_id, headerPage.root_pageNum, key);
+	buffer_read_page(table_id, leafPageNum, &target_leafPage);
+
+	int i = search_index_location_leaf(target_leafPage.record, key, target_leafPage.num_keys);
+	if (i == -1) {
+		return -1;
+	}
+
+	buffer_complete_read_without_write(table_id, leafPageNum);
+
+	if (lock_acquire(table_id, key, trx_id, X) == NULL){
+		return -1;
+	}
+	
+	buffer_read_page(table_id, leafPageNum, &target_leafPage);
+	trx_manager->store_original_log(trx_id, table_id, key, target_leafPage.record[i].value);
+	strcpy(target_leafPage.record[i].value, values);
+	buffer_write_page(table_id, leafPageNum, &target_leafPage);
+
+	return 0;
+}
+</code>
+</pre>
+db_find와 마찬가지로 먼저 페이지를 buffer_read로 읽은 후, 레코드를 바로 얻는 것이 아니라   
+해당 레코드의 위치를 파악한 후 buffer_complete_read_witout_write로 페이지 래치를 풀어주고, lock_acquire를 기다립니다. 
+
+이후 Xlock을 얻게 되면 다시 buffer_read로 페이지를 읽어서 레코드를 찾은 후에 original한 레코드를 trxNode에 저장해주고   
+해당 레코드를 변경한 후 0을 반환합니다.   
+      
+lock을 얻지 못했다면 -1을 리턴합니다.   
