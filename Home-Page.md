@@ -22,3 +22,8 @@ b+tree의 작동방식에 대한 위키와 이를 디스크 상에서 어떻게 
 여러 스레드가 하나의 레코드에 동시 접근한다면 레코드의 변경이 올바르게 이뤄지지 않을 수 있습니다.   
 이러한 동시 접근을 보호하기 위하여 Lock Table을 사용합니다.
 + [Lock Table](https://hconnect.hanyang.ac.kr/2020_ite2038_11800/2020_ite2038_2016025650/-/wikis/Lock_table(project4))
+   
+### 4. Concurrency Control   
+여러 transaction들을 동시에 제어하기 위한 작업입니다.   
+multi thread를 고려해야하기 때문에 매니저들에 크고 작은 변화가 생겼고, transaction을 위한 매니저가 생겼습니다.   
++ [Concurrency Control]
