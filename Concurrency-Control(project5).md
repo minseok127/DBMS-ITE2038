@@ -86,7 +86,7 @@ trxNode가 할당받은 trx id를 반환합니다.
 table_id와 key, orignal record를 담은 record_log를 만들고 trxNode가 관리하는 record_log 해쉬 테이블에 저장합니다.   
    
 만약 해당하는 record_log가 이미 trxNode의 record_log 해쉬 테이블에 존재한다면 중복된 저장을 하지 않고 함수를 종료하고,   
-해당 record_log가 아예 처음 생긴 record_log일 떄만 해쉬테이블에 저장합니다.   
+해당 record_log가 아예 처음 생긴 record_log인 경우에만 해쉬테이블에 저장합니다.   
     
 * ### record_log* trxManager::load_log(int trx_id, int table_id, int64_t key)
 인자로 받은 trx_id의 trxNode가 관리하는 record_log의 주소값을 반환합니다.   
