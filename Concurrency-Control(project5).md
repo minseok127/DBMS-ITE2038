@@ -146,7 +146,7 @@ bool is_dead(lock_t* target){
 ![is_dead](uploads/ae99fb20212f9abae5cd53e40979063c/is_dead.png)
    
 추가로, 인자로 들어온 lock에 대해 사이클이 형성되었는 지 확인이 끝난 trx_id는 따로 해쉬 자료구조로 보관해놓습니다.   
-그래서 같은 trx_id에 대한 사이클을 중복해서 다시 검사하는 일이 발생하지 않도록 합니다.   
+그래서 이미 확인이 끝난 trx_id에 대한 사이클을 중복해서 다시 검사하는 일이 발생하지 않도록 합니다.   
     
 * ### int trx_rollback(int trx_id, int table_id, int64_t key)
 인자로 받은 trx_id, table_id, key에 해당하는 record를 record_log에 저장되어있던 original record로 되돌리는 함수입니다.   
