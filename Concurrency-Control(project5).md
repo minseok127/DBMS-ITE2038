@@ -239,8 +239,7 @@ next_lock은 trxNode의 lock list를 링크드 리스트 형태로 관리하기 
    
 trx_id는 해당 lock을 어떤 트랜잭션이 보유한 것인지 파악하기 위함입니다.    
    
-is_working은 해당 lock이 논리적으로 일하고 있는 지, 일하고 있지 않은 지를 구별하게 해줍니다.   
-즉, lock을 가진 스레드가 해당 레코드에 대해 원하는 결과를 얻었는지를 알 수 있게 해줍니다.     
+is_working은 해당 lock을 가진 스레드가 레코드에 대해 원하는 결과를 얻었는지를 알 수 있게 해줍니다.     
 > is_working이 true이어도 해당 lock을 가진 스레드는 wait일 수 있습니다.   
 >   
 > 예를 들어 어떤 스레드가 record A에 대해서 Xlock을 획득하여 레코드를 변경하면 해당 lock의 is_working은 true입니다.   
