@@ -57,7 +57,8 @@ record_log 객체는 어떤 table id의 무슨 key에 대한 record인지를 구
 trxNode가 record_log 객체를 해쉬 테이블 형태로 관리하기 때문에 이를 위한 next record_log를 가집니다.   
    
 또한 record_log 객체는 original_value라는 변수를 가지는데   
-이 변수는 트랜잭션이 변경하기 이전의 레코드를 담고 있습니다. 즉, 트랜잭션이 호출되는 시점에 저장되어있던 레코드를 가집니다.   
+이 변수는 트랜잭션이 변경하기 이전의 레코드를 담고 있습니다.    
+즉, 트랜잭션이 첫 번째 db_update를 호출하는 시점에 저장되어있던 레코드를 가집니다.   
    
 * ### trx_manager_latch
 trxManager에는 동시에 여러 스레드들이 접근하여 정보가 제대로 반영되지 못하거나 잘못된 정보를 가져갈 위험이 있습니다.   
