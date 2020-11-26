@@ -100,6 +100,7 @@ trxManager 객체의 초기화를 위한 함수입니다. init_db함수의 내�
 <code>
 bool is_dead(lock_t* target){
     queue<int> q;
+    hash_pass_trx_id pass;
 
     lock_t* c = target->prev;
     while(c != NULL){
@@ -114,20 +115,27 @@ bool is_dead(lock_t* target){
         front_trx_id = q.front();
         q.pop();
 
-        if (front_trx_id == target->trx_id){
-            return true;
+        if (pass.is_is(front_trx_id)){
+            continue;
         }
 
         lock_t* next_target = trx_manager->get_trxNode(front_trx_id)->lock_conflict;
         if (next_target == NULL){
+            pass.insert_id(front_trx_id);
             continue;
         }
         
         c = next_target->prev;
         while(c != NULL){
-            q.push(c->trx_id);
+            if (c->trx_id == target->trx_id){
+                return true;
+            }
+            if (!(pass.is_in(c->trx_id))){
+                q.push(c->trx_id);
+            }
             c = c->prev;
         }
+        pass.insert_id(front_trx_id);
     }
     return false;
 }
@@ -137,8 +145,9 @@ bool is_dead(lock_t* target){
    
 ![is_dead](uploads/ae99fb20212f9abae5cd53e40979063c/is_dead.png)
    
-중복되는거 제거하는 거 추가@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@   
-   
+추가로, 인자로 들어온 lock에 대해 사이클이 형성되었는 지 확인이 끝난 trx_id는 따로 해쉬 자료구조로 보관해놓습니다.   
+그래서 같은 trx_id에 대한 사이클을 중복해서 다시 검사하는 일이 발생하지 않도록 합니다.   
+    
 * ### int trx_rollback(int trx_id, int table_id, int64_t key)
 인자로 받은 trx_id, table_id, key에 해당하는 record를 record_log에 저장되어있던 original record로 되돌리는 함수입니다.   
    
