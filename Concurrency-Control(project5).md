@@ -27,7 +27,7 @@ Transaction Manager
    
 * [Introduce](#introduce)
 * [Functions of Transaction Manager](#functions-of-transaction-manager)
-* [API](#api)
+* [Functions for Transaction](#functions-for-transaction)
 
 > #### Introduce
 트랜잭션이 새롭게 생성될 때마다 해당 트랜잭션은 id를 부여받습니다.    
@@ -91,7 +91,7 @@ table_id와 key, orignal record를 담은 record_log를 만들고 trxNode가 관
 * ### record_log* trxManager::load_log(int trx_id, int table_id, int64_t key)
 인자로 받은 trx_id의 trxNode가 관리하는 record_log의 주소값을 반환합니다.   
    
-> #### API
+> #### Functions for Transaction
 * ### int init_trxManager()
 trxManager 객체의 초기화를 위한 함수입니다. init_db함수의 내부에서 호출됩니다.   
    
