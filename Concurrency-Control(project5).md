@@ -537,6 +537,9 @@ page_latch를 얻은 후에는 buffer_latch를 놓아주게 됩니다.
 <code>
 int db_find(int table_id, int64_t key, char* ret_val, int trx_id) {
 	if (tableManager->get_fileTable(table_id)->getFd() < 0){
+                pthread_mutex_lock(&lock_table_latch);
+                trx_abort(trx_id);
+                pthread_mutex_unlock(&lock_table_latch);
 		return -1;
 	}
 	HeaderPage headerPage;
@@ -546,6 +549,9 @@ int db_find(int table_id, int64_t key, char* ret_val, int trx_id) {
 	buffer_complete_read_without_write(table_id, 0);
 	
 	if (headerPage.root_pageNum == 0) {
+                pthread_mutex_lock(&lock_table_latch);
+                trx_abort(trx_id);
+                pthread_mutex_unlock(&lock_table_latch);
 		return -1;
 	}
 	pagenum_t leafPageNum = find_leafPage(table_id, headerPage.root_pageNum, key);
@@ -590,6 +596,9 @@ trx_abort 내부에서는 lock_table_latch를 얻지 않기 때문에 lock_table
 <code>
 int db_update(int table_id, int64_t key, char* values, int trx_id){
 	if (tableManager->get_fileTable(table_id)->getFd() < 0){
+                pthread_mutex_lock(&lock_table_latch);
+                trx_abort(trx_id);
+                pthread_mutex_unlock(&lock_table_latch);
 		return -1;
 	}
 
@@ -599,6 +608,9 @@ int db_update(int table_id, int64_t key, char* values, int trx_id){
 	buffer_read_page(table_id, 0, &headerPage);
 	buffer_complete_read_without_write(table_id, 0);
 	if (headerPage.root_pageNum == 0) {
+                pthread_mutex_lock(&lock_table_latch);
+                trx_abort(trx_id);
+                pthread_mutex_unlock(&lock_table_latch);
 		return -1;
 	}
 	pagenum_t leafPageNum = find_leafPage(table_id, headerPage.root_pageNum, key);
