@@ -6,7 +6,7 @@ Concurrency Control의 구현에 대한 설명입니다.
 각각의 transaction은 trx_begin함수의 호출로 시작하여 trx_commit함수의 호출로 끝나게 됩니다.      
    
 begin과 commit 사이에서는 db_find와 db_update API를 사용하여 원하는 테이블의 레코드를 찾거나 변경하게 됩니다.   
-그러나 db_find와 db_update 사용 중 데드락이 발생하면 이 함수들의 내부에서 abort됩니다.   
+그러나 db_find와 db_update 사용 중 오류가 발생하면 트랜잭션은 이 함수들의 내부에서 abort됩니다.   
    
 시스템 내부적으로는 Concurrency Control을 위해서 Strict 2 Phase Locking을 사용하여 트랜잭션들의 lock을 관리하고,   
 트랜잭션이 새로운 lock을 추가할 때마다 deadlock 여부를 판단하여 abort할 지, operation을 진행할 지 결정합니다.   
