@@ -501,7 +501,8 @@ Concurrency Control을 구현하게 되면서 버퍼 매니저와 인덱스 매�
 * [Buffer Manager](#buffer-manager)
 * [Index Manager](#index-manager)
    
-> #### Buffer Manager
+> #### Buffer Manager   
+   
 * buffer_latch
 LRU policy에 의하여 버퍼 풀에 변경이 생길 때, 서로 다른 스레드들이 같은 버퍼 구조체에 접근하게 되는 경우를 방지하기 위해서   
 스레드들이 버퍼 구조체에 접근하여 LRU 리스트를 변경하려면 먼저 buffer_latch라는 mutex를 얻은 후 접근할 수 있습니다.   
