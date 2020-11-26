@@ -577,14 +577,13 @@ int db_find(int table_id, int64_t key, char* ret_val, int trx_id) {
 </pre>
 이전의 db_find와 달라진 점은 페이지를 buffer_read로 읽은 후, 레코드를 바로 얻는 것이 아니라   
 해당 레코드의 위치를 파악한 후 buffer_complete_read_without_write로 페이지 래치를 풀어주고, lock_acquire를 기다립니다.   
-   
-만약 find하고자 하는 key가 페이지 상에 존재하지 않는다면 페이지에 대한 래치를 먼저 풀어주고 해당 트랜잭션을 abort합니다.    
+     
+이후 Slock을 얻게 되면 다시 buffer_read로 페이지를 읽어서 레코드를 찾은 후에 페이지 래치를 풀어주고 0을 리턴합니다.   
+    
+만약 find하고자 하는 key가 페이지 상에 존재하지 않거나, 이미 닫혀있는 파일에 접근하는 것처럼       
+다양한 에러가 생기면 trx_abort를 통하여 해당 트랜잭션을 abort시킵니다.   
    
 trx_abort 내부에서는 lock_table_latch를 얻지 않기 때문에 lock_table_latch를 먼저 얻고 동작을 수행합니다. -1을 반환합니다.   
-   
-이후 Slock을 얻게 되면 다시 buffer_read로 페이지를 읽어서 레코드를 찾은 후에 페이지 래치를 풀어주고 0을 리턴합니다.   
-   
-lock을 얻지 못했다면 -1을 리턴합니다.   
    
 * ### int db_update(int table_id, int64_t key, char* values, int trx_id)
 <pre>
@@ -633,11 +632,11 @@ int db_update(int table_id, int64_t key, char* values, int trx_id){
 </pre>
 db_find와 마찬가지로 먼저 페이지를 buffer_read로 읽은 후, 레코드를 바로 얻는 것이 아니라   
 해당 레코드의 위치를 파악한 후 buffer_complete_read_without_write로 페이지 래치를 풀어주고, lock_acquire를 기다립니다.    
-   
-만약 find하고자 하는 key가 페이지 상에 존재하지 않는다면 페이지에 대한 래치를 먼저 풀어주고 해당 트랜잭션을 abort합니다.    
-trx_abort 내부에서는 lock_table_latch를 얻지 않기 때문에 lock_table_latch를 먼저 얻고 동작을 수행합니다. -1을 반환합니다.   
-   
+      
 이후 Xlock을 얻게 되면 다시 buffer_read로 페이지를 읽어서 레코드를 찾은 후에 original한 레코드를 trxNode에 저장해주고   
 해당 레코드를 변경한 후 0을 반환합니다.   
-      
-lock을 얻지 못했다면 -1을 리턴합니다.   
+         
+만약 update하고자 하는 key가 페이지 상에 존재하지 않거나, 이미 닫혀있는 파일에 접근하는 것처럼         
+다양한 에러가 생기면 trx_abort를 통하여 해당 트랜잭션을 abort시킵니다.   
+   
+trx_abort 내부에서는 lock_table_latch를 얻지 않기 때문에 lock_table_latch를 먼저 얻고 동작을 수행합니다. -1을 반환합니다.
