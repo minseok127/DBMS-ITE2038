@@ -115,7 +115,7 @@ bool is_dead(lock_t* target){
         front_trx_id = q.front();
         q.pop();
 
-        if (pass.is_is(front_trx_id)){
+        if (pass.is_in(front_trx_id)){
             continue;
         }
 
