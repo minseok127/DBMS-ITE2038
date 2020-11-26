@@ -576,7 +576,7 @@ int db_find(int table_id, int64_t key, char* ret_val, int trx_id) {
 </code>
 </pre>
 이전의 db_find와 달라진 점은 페이지를 buffer_read로 읽은 후, 레코드를 바로 얻는 것이 아니라   
-해당 레코드의 위치를 파악한 후 buffer_complete_read_witout_write로 페이지 래치를 풀어주고, lock_acquire를 기다립니다.   
+해당 레코드의 위치를 파악한 후 buffer_complete_read_without_write로 페이지 래치를 풀어주고, lock_acquire를 기다립니다.   
    
 만약 find하고자 하는 key가 페이지 상에 존재하지 않는다면 페이지에 대한 래치를 먼저 풀어주고 해당 트랜잭션을 abort합니다.    
    
@@ -632,7 +632,7 @@ int db_update(int table_id, int64_t key, char* values, int trx_id){
 </code>
 </pre>
 db_find와 마찬가지로 먼저 페이지를 buffer_read로 읽은 후, 레코드를 바로 얻는 것이 아니라   
-해당 레코드의 위치를 파악한 후 buffer_complete_read_witout_write로 페이지 래치를 풀어주고, lock_acquire를 기다립니다.    
+해당 레코드의 위치를 파악한 후 buffer_complete_read_without_write로 페이지 래치를 풀어주고, lock_acquire를 기다립니다.    
    
 만약 find하고자 하는 key가 페이지 상에 존재하지 않는다면 페이지에 대한 래치를 먼저 풀어주고 해당 트랜잭션을 abort합니다.    
 trx_abort 내부에서는 lock_table_latch를 얻지 않기 때문에 lock_table_latch를 먼저 얻고 동작을 수행합니다. -1을 반환합니다.   
