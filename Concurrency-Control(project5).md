@@ -529,8 +529,7 @@ page_latch를 얻은 후에는 buffer_latch를 놓아주게 됩니다.
 보유중인 페이지 래치를 풀어줍니다.   
     
 > #### Index Manager
-추가적인 API인 db_update가 생겼고, db_find에 대해서 여러 트랜잭션을 다루기 위한 변화가 생겼습니다.   
-또한 여러 스레드들의 접근을 다루기 위해 table_id를 관리하는 tableManager_latch도 추가되었습니다.   
+추가적인 API인 db_update가 생겼고, db_find에 대해서 여러 트랜잭션을 다루기 위한 변화가 생겼습니다.     
    
 * ### int db_find(int table_id, int64_t key, char* ret_val, int trx_id)
 <pre>
