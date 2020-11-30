@@ -191,6 +191,7 @@ int trx_commit(int trx_id){
     trxNode* target_trx = trx_manager->get_trxNode(trx_id);
     if (target_trx == NULL){
         pthread_mutex_unlock(&trx_manager_latch);
+        pthread_mutex_unlock(&lock_table_latch);
         return 0;
     }
     lock_t* c = target_trx->lock_head;
