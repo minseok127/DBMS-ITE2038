@@ -252,4 +252,98 @@ compensate 로그를 발행할 때 사용하는 함수입니다.
 2번의 경우는 page eviction을 해야할 때, 해당 페이지가 dirty여서 디스크와 동기화를 시켜줘야한다면 로그 버퍼 또한 flush합니다.   
 3번의 경우는 로그 버퍼가 꽉차서 더이상 로그를 버퍼에 담을 수 없을 때 flush합니다.   
      
-R
+Recovery
+========
+크래쉬가 난 이후에는 로그 파일을 바탕으로 리커버리를 진행하게 됩니다.   
+recovery.cpp 소스 파일과 recoveryManager.h 헤더파일에 구현되어있습니다.   
+   
+* Introduce
+* Analysis
+* Redo
+* Undo
+* Simple test result
+   
+> #### Introduce
+리커버리 매니저의 구조입니다.   
+<pre>
+<code>
+class RecoveryManager{
+private:
+    /* Used for recovery, contain log */
+    char buf[SIZE_LOG_BUF];
+    int bufOffset = 0;
+
+    /* Log file fd */
+    int logFileFd = -1;
+
+    /* Log message file's file pointer */
+    FILE* fp_log_message_file;
+    
+    /* bufPin is the offset of the file corresponding to start of the log buffer */
+    /* startLSN is the LSN corresponding to start log's LSN in the log buffer  */
+    int bufPin = 0;
+    int startLSN = 0;
+
+    /* For artificial crash */
+    int checkedLogNum = 0;
+
+    /* For choosing next undo trx */
+    priority_queue<MaxQNode> maxPq;
+
+    /* Winner, Loser */
+    set<int> winnerSet;
+    set<int> loserSet;
+
+    /* Largest trx id */
+    int maxTrxId = 0;
+
+    /* Table id of target file */
+    stack<int> idStack;
+    bool idList[MAX_TABLE_NUM];
+
+    /* Meta log */
+    MetaLog* metaLog;
+public:
+    /* Initialize */
+    /* Assume that log file is already open */
+    /* So log manager must be initailized before recovery manager created */
+    RecoveryManager(int logFileFd, char* log_message_fileName, MetaLog* metaLog);
+
+    /* Raise new logs */
+    void rasiseNewLog();
+
+    /* Decode log */
+    uint64_t get_seqNo();
+
+    /* Analysis */
+    void analysis();
+
+    /* Redo */
+    void redo(int log_num);
+    void redoUpdateLog(updateLog* update_log);
+    void redoCompensateLog(compensateLog* compensate_Log);
+
+    /* Undo */
+    void undo(int log_num);
+    void make_priority_queue_about_loser();
+
+    /* Increase trx id when meet the begin log */
+    int get_maxTrxId();
+
+    /* Get target file's id */
+    stack<int> get_table_id_stack();
+};
+</code>
+</pre>
+리커버리 매니저는 로그 매니저와 별개의 로그 버퍼를 가지고 있습니다. 리커버리 매니저는 이 로그 버퍼를 활용하여 리커버리를 진행하고, 리커버리 과정에서 새롭게 생겨나는 로그들은 리커버리 매니저와 별개로 로그 매니저의 버퍼에 의해 발생합니다.   
+   
+리커버리 매니저는 우선순위 큐를 가지고 있습니다. 이것은 후에 undo과정에서 사용됩니다.   
+   
+리커버리의 대상이 되는 테이블들의 id를 스택에 담아서 보관합니다. 후에 리커버리가 끝나면 해당 스택에서 하나씩 꺼내면서 page flush 및 close를 합니다.   
+   
+Analysis 과정에서 위너와 루저를 구별하여 set 자료구조 형태로 보관합니다.   
+   
+로그 매니저로부터 메타 로그를 받아서 멤버 변수로 저장합니다. 이는 이후 리커버리 과정에서 발행하는 로그의 시퀀스 넘버에 활용됩니다.   
+   
+리커버리 매니저의 로그 버퍼를 관리하기 위한 멤버 변수들을 보다 자세히 설명하겠습니다.   
+* ###  bufOffset
