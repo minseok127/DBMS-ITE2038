@@ -15,8 +15,17 @@ DB의 상태를 이전으로 되돌리기 위해서는 DBMS가 이전에 어떠�
    
 리커버리 매니저는 디스크에 저장되어있는 로그를 기반으로 DBMS를 크래쉬 이전으로 되돌리는 역할을 수행합니다.   
    
-또한 Recoevry와는 별개로 
+또한 Recoevry와는 별개로 project5에서 구현한 Concurrency Control을 좀 더 일반적인 디자인으로 구현할 예정입니다.   
+   
 Feature
 =======
 * Log Manager
 * Recovery Manager
+* General Locking
+   
+Log Manager
+============
+리커버리를 하기 위해선 DBMS가 어떤 동작을 했었는 지를 기록해야합니다.     
+로그 매니저는 이러한 로그의 발행 및 로그파일과의 동기화를 담당합니다.      
+   
+
