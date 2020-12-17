@@ -236,10 +236,9 @@ update 로그를 발행할 때 사용하는 함수입니다.
 * ### publish_compensateLog
 compensate 로그를 발행할 때 사용하는 함수입니다.   
    
-위의 함수들은 내부적으로 tailBuf를 조절하며 발행됩니다.   
-새로운 로그 객체가 생성된 이후에는 로그 매니저가 관리하는 로그 버퍼로 바이트단위 복사됩니다.   
-
-또한 로그를 발행하면서 트랜잭션 테이블의 구성요소들도 최신화됩니다.   
+> 위의 함수들은 내부적으로 tailBuf를 조절하며 발행됩니다.   
+> 새로운 로그 객체가 생성된 이후에는 로그 매니저가 관리하는 로그 버퍼로 바이트단위 복사됩니다.   
+> 또한 로그를 발행하면서 트랜잭션 테이블의 구성요소들도 최신화됩니다.   
    
 > #### Flush
 로그 매니저의 로그 버퍼가 디스크로 내려가는 경우는 3가지 경우가 존재합니다.   
@@ -375,3 +374,359 @@ struct MaxQNode{
 이것의 의미는 어떠한 트랜잭션이 어떠한 next undo lsn값을 가졌는 지를 나타냅니다.   
    
 > #### Analysis
+로그 파일을 처음부터 끝까지 읽으면서 위너와 루저를 구별합니다.   
+<pre>
+<code>
+void RecoveryManager::analysis(){
+    fprintf(fp_log_message_file, "[ANALYSIS] Analysis pass start\n");
+
+    rasiseNewLog();
+
+    bufOffset = 0;
+    int seqNo = get_seqNo();
+    int startOffset = log_manager->get_tailBuf();
+
+    while (seqNo != 0){
+        /* Parsing begin, commit, rollback logs */
+        basicLog* basic_log = new basicLog;
+
+        switch (seqNo - startOffset)
+        {
+        case SIZE_BASIC_LOG:
+            memcpy(basic_log, buf + bufOffset, SIZE_BASIC_LOG);
+            if (basic_log->type == BEGIN_T){
+                /* If log type is begin, set new trx table. It will be used publishing new log */
+                log_manager->set_trxTable(basic_log->trx_id);
+
+                /* Put trx id into loser Set */
+                loserSet.insert(basic_log->trx_id);
+            }   
+            else{
+                /* If log tpye is commit or rollback, this trx will not publish new log. So delete trx table */
+                log_manager->delete_trxTable(basic_log->trx_id);
+
+                /* Move trx id from loser Set to winner Set */
+                loserSet.erase(basic_log->trx_id);
+
+                winnerSet.insert(basic_log->trx_id);
+            }
+            break;
+        default:
+            break;
+        }
+
+        /* Delete log instance. */ 
+        delete basic_log;
+
+        /* Set other information */
+        bufOffset += (seqNo - startOffset);
+        startOffset = seqNo;
+        seqNo = get_seqNo();
+        if (seqNo - startLSN >= SIZE_LOG_BUF){
+            bufPin += startOffset - startLSN;
+            startLSN = startOffset;
+            rasiseNewLog();
+            bufOffset = 0;
+        }
+    }
+
+    /* Max trx id */
+    int maxWinner = 0;
+    int maxLoser = 0;
+
+    set<int>::iterator iter;
+    
+    fprintf(fp_log_message_file, "[ANALYSIS] Analysis success, Winner:");
+
+    for (iter = winnerSet.begin(); iter != winnerSet.end(); iter++){
+        maxWinner = *iter;
+        fprintf(fp_log_message_file, " %d", *iter);
+    }
+
+    fprintf(fp_log_message_file, ", Loser:");
+    for (iter = loserSet.begin(); iter != loserSet.end(); iter++){
+        maxLoser = *iter;
+        fprintf(fp_log_message_file, " %d", *iter);
+    }
+    fprintf(fp_log_message_file, "\n");
+
+    maxTrxId = maxWinner > maxLoser ? maxWinner : maxLoser;
+}
+</code>
+</pre>
+위너는 winner set에, 루저는 loser set에 저장합니다.   
+   
+또한 begin로그를 만나면 로그 발행을 위해 필요한 트랜잭션 테이블을 생성하고,   
+commit 로그 혹은 rollback 로그를 만나면 해당 트랜잭션들은 더이상 로그를 발행하지 않기 때문에 트랜잭션 테이블을 제거합니다.   
+   
+> #### Redo
+<pre>
+<code>
+void RecoveryManager::redo(int log_num){
+    fprintf(fp_log_message_file, "[REDO] Redo pass start\n");
+
+    /* If first phase does not in buffer, raise it */ 
+    if (bufPin != sizeof(MetaLog)){
+        bufPin = sizeof(MetaLog);
+        rasiseNewLog();
+
+        startLSN = metaLog->metaLSN;
+    }
+
+    bufOffset = 0;
+    int seqNo = get_seqNo();
+    int startOffset = log_manager->get_tailBuf();
+
+    while (seqNo != 0){
+        basicLog* basic_log = new basicLog;
+        updateLog* update_log = new updateLog;
+        compensateLog* compensate_log = new compensateLog;
+
+        /* Distinguish log type */
+        int type;
+
+        switch (seqNo - startOffset)
+        {
+        case SIZE_UPDATE_LOG:
+            /* Copy data in log buffer to the log instance and distinguish log type*/
+            memcpy(update_log, buf + bufOffset, SIZE_UPDATE_LOG);
+            type = UPDATE_T;
+            /* Move log manager's buffer tail for publishing new log at undo pass */
+            log_manager->move_tailBuf(SIZE_UPDATE_LOG);
+            /* Synchronize tail of log buffer and tail of log file */
+            /* After crash, log manager's log buffer is empty(not recovery manager's buffer). This case is tailBuf = tailFIle */
+            log_manager->sync_tails();
+            /* If target file is not open */
+            if (!idList[update_log->table_id - 1]){
+                /* Open for recovery */
+                char path[20];
+                sprintf(path, "DATA%d", update_log->table_id);
+                open_table(path);
+                idList[update_log->table_id - 1] = true;
+                idStack.push(update_log->table_id);
+            }
+            break;
+        case SIZE_COMPENSATE_LOG:
+            /* Copy data in log buffer to the log instance and distinguish log type*/
+            memcpy(compensate_log, buf + bufOffset, SIZE_COMPENSATE_LOG);
+            type = COMPENSATE_T;
+            /* Move log manager's buffer tail for publishing new log at undo pass */
+            log_manager->move_tailBuf(SIZE_COMPENSATE_LOG);
+            /* Synchronize tail of log buffer and tail of log file */
+            /* After crash, log manager's log buffer is empty(not recovery manager's buffer). This case is tailBuf = tailFIle */
+            log_manager->sync_tails();
+            break;
+        default:
+            /* Copy data in log buffer to the log instance and distinguish log type*/
+            memcpy(basic_log, buf + bufOffset, SIZE_BASIC_LOG);
+            /* Move log manager's buffer tail for publishing new log at undo pass */
+            log_manager->move_tailBuf(SIZE_BASIC_LOG);
+            /* Synchronize tail of log buffer and tail of log file */
+            /* After crash, log manager's log buffer is empty(not recovery manager's buffer). This case is tailBuf = tailFIle */
+            log_manager->sync_tails();
+            if (basic_log->type == BEGIN_T){
+                type = BEGIN_T;
+            }
+            else if (basic_log->type == COMMIT_T){
+                type = COMMIT_T;
+            }
+            else{
+                type = ROLLBACK_T;
+            }
+            break;
+        }
+
+        /* Redo about target log */
+        switch (type)
+        {
+        case UPDATE_T:
+            redoUpdateLog(update_log);
+            break;
+        case COMPENSATE_T:
+            redoCompensateLog(compensate_log);
+            break;
+        case BEGIN_T:
+            fprintf(fp_log_message_file, "LSN %lu [BEGIN] Transaction id %d\n", basic_log->seqNo, basic_log->trx_id);
+            break;
+        case COMMIT_T:
+            fprintf(fp_log_message_file, "LSN %lu [COMMIT] Transaction id %d\n", basic_log->seqNo, basic_log->trx_id);
+            break;
+        case ROLLBACK_T:
+            fprintf(fp_log_message_file, "LSN %lu [ROLLBACK] Transaction id %d\n", basic_log->seqNo, basic_log->trx_id);
+            break;
+        }
+
+        /* Delete log instance */
+        delete basic_log;
+        delete update_log;
+        delete compensate_log;
+
+        /* Set next log */
+        /* If buffer is full, raise new logs */
+        /* Set other information */
+        bufOffset += (seqNo - startOffset);
+        startOffset = seqNo;
+        seqNo = get_seqNo();
+        if (seqNo - startLSN >= SIZE_LOG_BUF){
+            bufPin += startOffset - startLSN;
+            startLSN = startOffset;
+            rasiseNewLog();
+            bufOffset = 0;
+        }
+
+        checkedLogNum++;
+        if (log_num != 0 && log_num == checkedLogNum){
+            fclose(fp_log_message_file);
+            return;
+        }
+    }
+
+    fprintf(fp_log_message_file, "[REDO] Redo pass end\n");
+}
+</code>
+</pre>
+다시 로그 파일의 처음부터 끝까지 읽습니다.   
+   
+이제부터는 로그 매니저의 상태도 크래쉬 이전과 동일하게 맞춰주기 위해서 로그들을 만날 때마다 해당 트랜잭션 테이블 또한 업데이트 시켜줍니다.   
+단, 이미 제거된 트랜잭션 테이블은 업데이트 시키지 않습니다.   
+   
+또한 update로그를 만나면 해당 로그의 대상이 되는 테이블을 open합니다. 이미 open되었는지의 여부를 idList라는 bool list를 활용하여 확인합니다.   
+   
+로그 매니저의 tail관련 정보들도 지속적으로 업데이트 시킵니다. Redo 과정에서 로그 매니저의 tail 정보들을 크래쉬 이전과 동일하게 맞춰줘야 Undo 과정에서 새로운 로그들을 durable하게 발행할 수 있습니다.   
+   
+> #### Undo
+Undo를 직접적으로 실행하기에 앞서, 어떠한 트랜잭션을 먼저 undo해야할지 정해야합니다.   
+각 루저 트랜잭션들은 undo해야하는 LSN이 있습니다. 루저 트랜잭션 중 이 undo의 대상이 되는 LSN이 가장 큰 것을 선별하는 작업이 필요합니다.   
+
+* ### make_priority_queue_about_loser()   
+이러한 작업을 우선순위 큐를 활용하여 진행합니다.   
+우선순위 큐(max)에 트랜잭션의 next undo sequence number에 대한 정보를 넣고 pop을 하여 해당 트랜잭션의 update 로그를 undo하고   
+다시 next undo sequence number를 변경한 후 큐에 다시 넣는 방식으로 작동합니다.   
+   
+<pre>
+<code>
+void RecoveryManager::undo(int log_num){
+    fprintf(fp_log_message_file, "[UNDO] Uedo pass start\n");
+
+    checkedLogNum = 0;
+    
+    /* make priority queue */
+    make_priority_queue_about_loser();
+
+    /* Undo */
+    while (!(maxPq.empty())){
+        /* Get trx info that has highest next undo number */
+        MaxQNode qNode = maxPq.top();
+        maxPq.pop();
+
+        int size;
+
+        /* Set buffer for next undo number */
+        /* LSN is end offset of log and LSN is located in start of log. */
+        /* It makes analysis and redo to know the size of log immediately. */
+        /* But undo read from end of log. So it must read first about size of log */
+        if (qNode.nextUndoSeqNo - sizeof(int) < startLSN){
+            /* If can't read size of log(Out of buffer) */
+            /* Raise new buffer */
+            /* New buffer's end is qNode.nextUndoSeqNo */
+            if (qNode.nextUndoSeqNo - SIZE_LOG_BUF < metaLog->metaLSN){
+                /* If new buffer's start is less than metaLSN, restrict start point to metaLSN */
+                startLSN = metaLog->metaLSN;
+            }
+            else{
+                startLSN = qNode.nextUndoSeqNo - SIZE_LOG_BUF;
+            }
+            bufPin = startLSN - metaLog->metaLSN + sizeof(MetaLog);
+            rasiseNewLog();
+
+            /* Read size of next undo log */
+            memcpy(&size, buf + (qNode.nextUndoSeqNo - startLSN - sizeof(int)), sizeof(int));
+        }
+        else{
+            /* If can read size of log */
+            /* Read size of next undo log */
+            memcpy(&size, buf + (qNode.nextUndoSeqNo - startLSN - sizeof(int)), sizeof(int));
+
+            /* If log is truncated by start of buffer, rasie new buffer */
+            /* New buffer's end is qNode.nextUndoSeqNo */
+            if (qNode.nextUndoSeqNo - size < startLSN){
+                if (qNode.nextUndoSeqNo - SIZE_LOG_BUF < metaLog->metaLSN){
+                    /* If new buffer's start is less than metaLSN, restrict start point to metaLSN */
+                    startLSN = metaLog->metaLSN;
+                }
+                else{
+                    startLSN = qNode.nextUndoSeqNo - SIZE_LOG_BUF;
+                }
+                bufPin = startLSN - metaLog->metaLSN + sizeof(MetaLog);
+                rasiseNewLog();
+            }
+        }
+
+        /* Set start offset of undoing update log */
+        /* Undoing log is update log */
+        int startOffset = (qNode.nextUndoSeqNo - startLSN - size);
+
+        trxTable* targetTable = qNode.trxTablePtr;
+        updateLog* update_log = new updateLog;
+
+        /* Copy to update_log */
+        memcpy(update_log, buf + startOffset, size);
+
+        /* Publish compensate log about undo */
+        uint64_t publishedSeqNo = log_manager->publish_compensateLog(update_log->trx_id, update_log->table_id, update_log->pagenum, update_log->offset, update_log->redo, update_log->undo);
+        // update_log->redo will be compensate_log's undo. update_log->undo will be compensate_log's redo.
+        // trx table will be updated in publish_compensateLog()
+        // Recovery is working in single thread, mutex does not required
+
+        LeafPage leafPage;
+        buffer_read_page(update_log->table_id, update_log->pagenum, &leafPage);
+
+        /* Consider undo */
+        if (leafPage.pageLSN >= update_log->seqNo){
+            /* Undo record of target page */
+            int i = (update_log->offset - PAGE_HEADER_SIZE - sizeof(int64_t))/sizeof(Record);
+            memcpy(leafPage.record[i].value, update_log->undo, update_log->dataLength);
+            
+            /* Update last update log sequence number */
+            /* targetTable's last sequence number is compensate log */ 
+            leafPage.pageLSN = publishedSeqNo;
+
+            buffer_write_page(update_log->table_id, update_log->pagenum, &leafPage);
+
+            fprintf(fp_log_message_file, "LSN %lu [UPDATE] Transaction id %d undo apply\n", update_log->seqNo, update_log->trx_id);
+        }
+        else{
+            /* Consider undo */
+            buffer_complete_read_without_write(update_log->table_id, update_log->pagenum);
+
+            fprintf(fp_log_message_file, "LSN %lu [CONSIDER-UNDO] Transaction id %d\n", update_log->seqNo, update_log->trx_id);
+        }
+
+        /* If trx does not have update log, publish rollback log */
+        /* Else update qNode with new next undo number, push into priority queue again */
+        if (targetTable->nextUndoSeqNo == 0){
+            log_manager->publish_rollbackLog(update_log->trx_id);
+        }
+        else{
+            qNode.nextUndoSeqNo = targetTable->nextUndoSeqNo;
+            maxPq.push(qNode);  
+        }
+
+        /* Delete log instance */
+        delete update_log;
+
+        checkedLogNum++;
+        if (log_num != 0 && checkedLogNum == log_num){
+            fclose(fp_log_message_file);
+            return;
+        }
+    }
+
+    fprintf(fp_log_message_file, "[UNDO] Undo pass end\n");
+
+    fclose(fp_log_message_file);
+
+    /* Flush will occured in last of init_db() */
+}
+</code>
+</pre>
