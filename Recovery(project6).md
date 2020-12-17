@@ -747,7 +747,17 @@ LSN이 되도록 디스크로부터 데이터를 읽어옵니다.
    
 그러나 0이 아니라면 undo할 update가 남아있다는 의미이기 때문에 큐노드의 정보를 업데이트하고 다시 우선순위 큐에 push합니다.   
    
-> #### Simple result
+> #### Simple result 
+리커버리의 결과에 대한 간단한 캡쳐입니다.
+   
+1. 100번째 로그까지 redo
+![1__100](uploads/fefd9bfdb30114797a977047802697b8/1__100.png)
+2. 100번째 로그까지 다시 redo(consider-redo)
+![consider](uploads/e7d38ff659dfc3005a8e622164e34964/consider.png)
+3. 5개 로그 undo
+![2__5](uploads/358104fbcf567a07fa1b48fd2c0da714/2__5.png)
+4. 5개 로그 undo 반복
+![2_5_again](uploads/3ce35e9e246150b7f0d7b25bff38083d/2_5_again.png)
    
 > #### Last of Recovery
 리커버리를 성공적으로 undo까지 마쳤다면 마지막에 발행된 로그의 LSN과 현재까지 시작된 트랜잭션 중 가장 큰 id를 파악하여   
