@@ -1,0 +1,36 @@
+.SUFFIXES: .cpp .o
+
+CXX=g++
+
+SRCDIR=src/
+INC=include/
+LIBS=lib/
+
+#SRCS:=$(wildcard src/*.cpp)
+#OBJS:=$(SRCS:.cpp=.o)
+
+# main source file
+TARGET_SRC:=$(SRCDIR)main.cpp
+TARGET_OBJ:=$(SRCDIR)main.o
+
+# Include more files if you write another source file.
+SRCS_FOR_LIB:=$(SRCDIR)bpt.cpp $(SRCDIR)file.cpp
+OBJS_FOR_LIB:=file.o bpt.o
+
+CXXFLAGS+= -g -fPIC -I $(INC)
+
+TARGET=main
+
+$(TARGET): $(TARGET_OBJ)
+	$(CXX) $(CXXFLAGS) -c $(SRCS_FOR_LIB)
+	make static_library
+	$(CXX) $(CXXFLAGS) -o $@ $^ -L $(LIBS) -lbpt
+
+clean:
+	rm $(TARGET) $(TARGET_OBJ) $(OBJS_FOR_LIB) $(LIBS)*
+
+library:
+	g++ -shared -Wl,-soname,libbpt.so -o $(LIBS)libbpt.so $(OBJS_FOR_LIB)
+
+static_library:
+	ar cr $(LIBS)libbpt.a $(OBJS_FOR_LIB)

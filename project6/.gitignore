@@ -1,0 +1,12 @@
+/bpt.o
+/buffer.o
+/DATA1
+/file.o
+/lock.o
+/log.o
+/logfile.data
+/logmsg.txt
+/main
+/recovery.o
+/trx.o
+/src/main.o
