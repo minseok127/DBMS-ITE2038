@@ -1,4 +1,5 @@
-Data Base Management System [HYU-ITE2038, 2nd semester 2020]
+Data Base Management System    
+[HYU-ITE2038, 2nd semester 2020]
 ===============================================================
 DBMS는 여러개의 계층으로 구성되어 있습니다.   
 해당 프로젝트에서는 리눅스 환경에서 c++언어 및 g++ 7.5.0버전을 사용하여 구현합니다.   
