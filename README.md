@@ -1,3 +1,5 @@
+**This repository was created during my undergraduate database cousre project. It includes implementations of storage, buffer, transaction, and logging mechanisms.**
+
 DBMS [HYU-ITE2038, 2nd semester 2020]
 ===============================================================
 DBMS는 여러개의 계층으로 구성되어 있습니다.   
